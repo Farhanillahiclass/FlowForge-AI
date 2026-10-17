@@ -1,116 +1,38 @@
 {
-  "name": "Lead Capture CRM",
+  "name": "01 — Professional Workflow Health Check",
   "nodes": [
     {
-      "id": "trigger-1",
-      "name": "Receive request",
-      "type": "n8n-nodes-base.webhook",
-      "typeVersion": 2.1,
+      "id": "manual",
+      "name": "Run workflow manually",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
       "position": [
-        220,
+        240,
         300
       ],
-      "parameters": {
-        "httpMethod": "POST",
-        "path": "lead-capture",
-        "responseMode": "lastNode",
-        "options": {}
-      }
+      "parameters": {}
     },
     {
-      "id": "process-1",
-      "name": "Validate and prepare data",
+      "id": "process",
+      "name": "Validate and process input",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        470,
+        500,
         300
       ],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const b=$json.body||$json;const email=String(b.email||\"\").trim().toLowerCase();const name=String(b.name||\"\").trim();return [{json:{name,email,company:String(b.company||\"\"),source:String(b.source||\"website\"),message:String(b.message||\"\"),valid:/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email),receivedAt:new Date().toISOString(),status:\"new\"}}];"
-      }
-    },
-    {
-      "id": "sheets-1",
-      "name": "Log to Google Sheets",
-      "type": "n8n-nodes-base.googleSheets",
-      "typeVersion": 4.5,
-      "position": [
-        720,
-        300
-      ],
-      "parameters": {
-        "operation": "append",
-        "documentId": {
-          "__rl": true,
-          "value": "YOUR_GOOGLE_SHEET_ID",
-          "mode": "id"
-        },
-        "sheetName": {
-          "__rl": true,
-          "value": "Sheet1",
-          "mode": "name"
-        },
-        "columns": {
-          "mappingMode": "autoMapInputData",
-          "value": {},
-          "matchingColumns": [],
-          "schema": [],
-          "attemptToConvertTypes": false,
-          "convertFieldsToString": false
-        },
-        "options": {}
-      }
-    },
-    {
-      "id": "gmail-1",
-      "name": "Send Gmail notification",
-      "type": "n8n-nodes-base.gmail",
-      "typeVersion": 2.1,
-      "position": [
-        970,
-        300
-      ],
-      "parameters": {
-        "resource": "message",
-        "operation": "send",
-        "sendTo": "={{ $json.email || 'YOUR_TEAM_EMAIL@example.com' }}",
-        "subject": "={{ $json.subject || $json.emailSubject || 'FlowForge-AI notification' }}",
-        "emailType": "text",
-        "message": "={{ $json.body || $json.emailBody || $json.alert || $json.reviewText || $json.slackText || JSON.stringify($json) }}",
-        "options": {}
+        "jsCode": "return [{json:{workflow:\"FlowForge-AI Health Check\",status:\"ok\",message:\"n8n workflow executed successfully\",executedAt:new Date().toISOString(),executionMode:$execution.mode||\"unknown\",nextStep:\"Replace this starter with your business process.\"}}];"
       }
     }
   ],
   "connections": {
-    "Receive request": {
+    "Run workflow manually": {
       "main": [
         [
           {
-            "node": "Validate and prepare data",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Validate and prepare data": {
-      "main": [
-        [
-          {
-            "node": "Log to Google Sheets",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Log to Google Sheets": {
-      "main": [
-        [
-          {
-            "node": "Send Gmail notification",
+            "node": "Validate and process input",
             "type": "main",
             "index": 0
           }
