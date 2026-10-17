@@ -1,0 +1,133 @@
+{
+  "name": "90 - Central Error Handler",
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true
+  },
+  "versionId": "ffai-central-error-v1",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": [],
+  "nodes": [
+    {
+      "id": "error-trigger",
+      "name": "Receive Workflow Failure",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        200,
+        300
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "sanitize",
+      "name": "Sanitize Error Context",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const e=$json||{}; const x=e.execution||{}; const err=x.error||{}; return [{json:{occurredAt:new Date().toISOString(),workflowName:String(e.workflow?.name||'unknown').slice(0,200),workflowId:String(e.workflow?.id||''),executionId:String(x.id||''),executionUrl:String(x.url||''),lastNode:String(x.lastNodeExecuted||'unknown').slice(0,200),errorName:String(err.name||'Error').slice(0,100),errorMessage:String(err.message||'Unknown error').slice(0,500)}}];"
+      }
+    },
+    {
+      "id": "log",
+      "name": "Append Sanitized Error Log",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        740,
+        300
+      ],
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "REPLACE_WITH_OPS_LOG_SPREADSHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "OpsLog",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 1000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "notify",
+      "name": "Email Operator Alert",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        1010,
+        300
+      ],
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "sendTo": "REPLACE_WITH_OPS_ALERT_EMAIL",
+        "subject": "=[FlowForge-AI] Workflow failed: {{ $('Sanitize Error Context').first().json.workflowName }}",
+        "emailType": "text",
+        "message": "=Workflow: {{ $('Sanitize Error Context').first().json.workflowName }}\\nLast node: {{ $('Sanitize Error Context').first().json.lastNode }}\\nError: {{ $('Sanitize Error Context').first().json.errorMessage }}\\nExecution: {{ $('Sanitize Error Context').first().json.executionUrl }}\\nTime: {{ $('Sanitize Error Context').first().json.occurredAt }}",
+        "options": {}
+      },
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 1000
+    }
+  ],
+  "connections": {
+    "Receive Workflow Failure": {
+      "main": [
+        [
+          {
+            "node": "Sanitize Error Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sanitize Error Context": {
+      "main": [
+        [
+          {
+            "node": "Append Sanitized Error Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append Sanitized Error Log": {
+      "main": [
+        [
+          {
+            "node": "Email Operator Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}
