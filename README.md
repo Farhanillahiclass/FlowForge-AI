@@ -1,46 +1,67 @@
 # FlowForge-AI
 
-**A business-automation portfolio built around n8n workflow templates.**  
-Maintained by **Muhammad Farhan**.
+**A modular n8n automation portfolio** maintained by **Muhammad Farhan**.
 
-FlowForge-AI organizes 20 automation concepts into individual, self-contained folders. Each folder keeps its workflow export, implementation notes, and optional Google Apps Script adapter together.
+FlowForge-AI contains 20 business-workflow templates and a system layer showing how webhook intake, request validation, parent/child workflows, business actions, and centralized error reporting can fit together.
 
-> **Project status:** Portfolio / implementation templates. Some workflows still contain placeholders or require provider-specific configuration. Static validation is not proof of successful import or live execution. Review the status and testing notes before using any workflow with real users or data.
+> **Honest status:** this repository is not a claim that all 20 automations are fully configured in your account. Credentials and destination IDs must be selected in n8n. The system dispatcher currently demonstrates three event routes (lead capture, lead scoring, and support tickets); the other 17 templates are not yet connected to the central dispatcher.
 
-## At a glance
+## Project at a glance
 
-- **20** numbered workflow templates
-- **One folder per workflow** with `README.md`, `workflow.json`, and `Code.gs`
-- Python static validator and GitHub Actions check
-- Setup, credentials, safety, and validation documentation
-- MIT-licensed repository
+- 20 canonical workflow folders — one source file for each workflow.
+- Modular system exports for ingress, dispatch, reusable child processors, and error reporting.
+- Python static validator and GitHub Actions checks.
+- Credential, architecture, and end-to-end test documentation.
+- MIT license.
+
+## System architecture
+
+```text
+Webhook with Header Auth
+        |
+        v
+00 Main Ingress ---- invalid input ----> structured validation response
+        |
+        v
+01 Request Processor
+        |
+        +---- lead.created ------------> 10 Lead Capture sub-workflow
+        +---- lead.score_requested ---> 11 Lead Scoring sub-workflow
+        +---- support.ticket.created -> 12 Support Ticket sub-workflow
+        +---- unsupported event ------> structured error result
+
+Unhandled execution errors -----------> 90 Central Error Handler
+                                         sanitized log + operator alert
+```
+
+Execute Sub-workflow references must be bound to real workflow IDs after import. See [system deployment steps](system/README.md). The relevant n8n concepts are documented in [Execute Sub-workflow](https://docs.n8n.io/integrations/builtin/core-nodes/n8n-nodes-base.executeworkflow/), [Execute Sub-workflow Trigger](https://docs.n8n.io/integrations/builtin/core-nodes/n8n-nodes-base.executeworkflowtrigger/), and [Error Trigger](https://docs.n8n.io/integrations/builtin/core-nodes/n8n-nodes-base.errortrigger/).
 
 ## Workflow catalog
 
-| # | Workflow | Business area | Folder |
+| # | Workflow | Area | Folder |
 |---:|---|---|---|
-| 01 | Lead Capture & CRM | Sales | [Open](workflows/01-lead-capture-crm/) |
-| 02 | Lead Scoring & Routing | Sales | [Open](workflows/02-lead-scoring-routing/) |
-| 03 | Email Follow-up Sequence | Sales | [Open](workflows/03-email-follow-up-sequence/) |
-| 04 | Inbox Triage Assistant | Productivity | [Open](workflows/04-inbox-triage-assistant/) |
-| 05 | Customer Support Desk | Support | [Open](workflows/05-customer-support-desk/) |
-| 06 | FAQ & Human Handoff | Support | [Open](workflows/06-faq-human-handoff/) |
-| 07 | Meeting Booking System | Scheduling | [Open](workflows/07-meeting-booking-system/) |
-| 08 | Meeting Reminders | Scheduling | [Open](workflows/08-meeting-reminders/) |
-| 09 | Client Onboarding | Operations | [Open](workflows/09-client-onboarding/) |
-| 10 | Invoice & Payment Reminders | Finance operations | [Open](workflows/10-invoice-payment-reminders/) |
-| 11 | Content Creation & Approval | Content operations | [Open](workflows/11-content-creation-approval/) |
-| 12 | Instagram Publishing Pipeline | Content operations | [Open](workflows/12-instagram-publishing-pipeline/) |
-| 13 | YouTube Publishing Assistant | Content operations | [Open](workflows/13-youtube-publishing-assistant/) |
-| 14 | Content Repurposing | Content operations | [Open](workflows/14-content-repurposing/) |
-| 15 | Newsletter Campaign Builder | Marketing | [Open](workflows/15-newsletter-campaign-builder/) |
-| 16 | Weekly Business Report | Analytics | [Open](workflows/16-weekly-business-report/) |
-| 17 | Feedback Routing | Customer experience | [Open](workflows/17-feedback-routing/) |
-| 18 | Workflow Error Monitor | Reliability | [Open](workflows/18-workflow-error-monitor/) |
-| 19 | API Health Monitor | Reliability | [Open](workflows/19-api-health-monitor/) |
-| 20 | Telegram Business Assistant | Messaging | [Open](workflows/20-telegram-business-assistant/) |
+| 01 | Lead Capture & CRM | Sales | [Open](workflows/01-lead-capture-crm/README.md) |
+| 02 | Lead Scoring & Routing | Sales | [Open](workflows/02-lead-scoring-routing/README.md) |
+| 03 | Email Follow-up Sequence | Sales | [Open](workflows/03-email-follow-up-sequence/README.md) |
+| 04 | Inbox Triage Assistant | Productivity | [Open](workflows/04-inbox-triage-assistant/README.md) |
+| 05 | Customer Support Desk | Customer support | [Open](workflows/05-customer-support-desk/README.md) |
+| 06 | FAQ & Human Handoff | Customer support | [Open](workflows/06-faq-human-handoff/README.md) |
+| 07 | Meeting Booking System | Scheduling | [Open](workflows/07-meeting-booking-system/README.md) |
+| 08 | Meeting Reminders | Scheduling | [Open](workflows/08-meeting-reminders/README.md) |
+| 09 | Client Onboarding | Operations | [Open](workflows/09-client-onboarding/README.md) |
+| 10 | Invoice & Payment Reminders | Finance operations | [Open](workflows/10-invoice-payment-reminders/README.md) |
+| 11 | Content Creation & Approval | Content operations | [Open](workflows/11-content-creation-approval/README.md) |
+| 12 | Instagram Publishing Pipeline | Content operations | [Open](workflows/12-instagram-publishing-pipeline/README.md) |
+| 13 | YouTube Publishing Assistant | Content operations | [Open](workflows/13-youtube-publishing-assistant/README.md) |
+| 14 | Content Repurposing | Content operations | [Open](workflows/14-content-repurposing/README.md) |
+| 15 | Newsletter Campaign Builder | Marketing | [Open](workflows/15-newsletter-campaign-builder/README.md) |
+| 16 | Weekly Business Reporting | Analytics | [Open](workflows/16-weekly-business-report/README.md) |
+| 17 | Feedback & Escalation | Customer experience | [Open](workflows/17-feedback-routing/README.md) |
+| 18 | Workflow Error Monitor | Reliability | [Open](workflows/18-workflow-error-monitor/README.md) |
+| 19 | API Health Monitor | Reliability | [Open](workflows/19-api-health-monitor/README.md) |
+| 20 | Telegram Business Assistant | Messaging | [Open](workflows/20-telegram-business-assistant/README.md) |
 
-Browse the [full workflow index](workflows/README.md).
+See the [workflow index](workflows/README.md).
 
 ## Repository layout
 
@@ -48,67 +69,61 @@ Browse the [full workflow index](workflows/README.md).
 FlowForge-AI/
 ├── .github/workflows/       # Automated static validation
 ├── docs/                    # Architecture and contribution guidance
-├── scripts/                 # Local validation utilities
+├── scripts/                 # Local validator
+├── system/                  # Parent/child architecture examples
 ├── workflows/
-│   ├── README.md             # Workflow index
-│   ├── CREDENTIALS-GUIDE.md  # Provider setup notes
+│   ├── README.md
+│   ├── CREDENTIALS-GUIDE.md
 │   └── <workflow-slug>/
-│       ├── README.md         # Purpose, setup, tests, limitations
-│       ├── workflow.json     # n8n import/export
-│       └── Code.gs           # Optional Google Apps Script adapter
+│       ├── README.md
+│       ├── workflow.json
+│       └── Code.gs
 ├── TESTING-AND-VALIDATION.md
 ├── LICENSE
 └── README.md
 ```
 
-Older root-level numbered JSON files and reference directories are retained for backward compatibility while the per-workflow folders are the preferred entry point. See [structure notes](docs/PROJECT-STRUCTURE.md).
+The per-workflow folders are the single source of truth. Root-level workflow JSON copies and parallel `apps-script/` and `workflow-guides/` directories are being removed after each workflow guide was consolidated into its own README.
 
 ## Quick start
 
-1. Open a workflow folder and read its `README.md`.
-2. Download `workflow.json`, then import it into a **test** n8n project.
-3. Check your n8n version and resolve missing or placeholder nodes.
-4. Add credentials using n8n's credential manager; never put secrets in exported JSON or source control.
-5. Replace example IDs, recipients, URLs, and business rules.
-6. Run success, invalid-input, duplicate, and provider-failure tests using synthetic data.
-7. Confirm expected side effects in test systems and record the execution evidence.
-8. Activate only after review and end-to-end verification.
-
-The matching `Code.gs` is an optional Google Sheets adapter, not a mandatory dependency for every workflow. Follow that workflow's guide before deploying it.
+1. Read the [architecture guide](docs/ARCHITECTURE.md) and [credentials guide](workflows/CREDENTIALS-GUIDE.md).
+2. Open the relevant workflow folder and read its README.
+3. Import the JSON into a test n8n project and inspect all nodes.
+4. Select child workflow IDs and provider credentials in n8n.
+5. Replace spreadsheet IDs, recipients, URLs, and business-specific rules.
+6. Test valid/invalid input, duplicate events, provider failures, and actual destination side effects.
+7. Configure the central error workflow and verify it with a controlled automatic failure.
+8. Activate only after all required tests pass.
 
 ## Validate locally
 
-Requires Python 3.10 or later.
+Requires Python 3.10+.
 
 ```bash
 python scripts/validate_workflows.py
 ```
 
-The validator checks workflow JSON syntax, node naming, connection references, expected folder files, and the presence of the 20 numbered workflow folders. GitHub Actions runs the same static checks on pushes and pull requests.
+The validator checks canonical folder structure, workflow/system JSON syntax, basic node identities, and connection references. GitHub Actions runs it on pushes and pull requests. A static pass does not prove n8n import or live API execution; see [Testing & Validation](TESTING-AND-VALIDATION.md).
 
-**What this does not prove:** n8n import compatibility, valid provider-node parameters, credential configuration, Apps Script deployment, or live API behavior. See [Testing & Validation](TESTING-AND-VALIDATION.md).
+## Security and reliability
 
-## Security and responsible use
-
-- Use test accounts and synthetic data first.
-- Keep API keys, OAuth tokens, spreadsheet IDs with sensitive access, and customer data out of Git.
-- Use least-privilege credentials and appropriate authentication for webhooks.
-- Add consent, suppression lists, rate limits, retries, idempotency, and human approval where relevant.
-- Do not enable publishing, messaging, payment reminders, or customer-facing workflows until their side effects are verified.
-
-## Contributing
-
-Read [the project structure and contribution notes](docs/PROJECT-STRUCTURE.md). Keep each workflow self-contained, update its guide when changing behavior, and run the validator before opening a pull request.
+- Use Header Auth or an approved gateway for webhook intake.
+- Store credentials in n8n Credentials; never commit tokens.
+- Use least-privilege access and synthetic test data.
+- Configure bounded retries for transient errors and alerts for unhandled failures.
+- Use durable IDs and uniqueness constraints for reliable cross-run idempotency.
+- Keep publishing, marketing sends, billing reminders, and customer-facing actions behind consent/approval checks until fully tested.
 
 ## Maintainer
 
 **Muhammad Farhan**  
-- GitHub: [@Farhanillahiclass](https://github.com/Farhanillahiclass)
-- LinkedIn: [Muhammad Farhan](https://www.linkedin.com/in/muhammadfarhanmrs/)
-- YouTube: [FarhanMRSDeveloper](https://www.youtube.com/@FarhanMRSDeveloper)
+GitHub: [@Farhanillahiclass](https://github.com/Farhanillahiclass)  
+LinkedIn: [Muhammad Farhan](https://www.linkedin.com/in/muhammadfarhanmrs/)  
+YouTube: [FarhanMRSDeveloper](https://www.youtube.com/@FarhanMRSDeveloper)
 
 ## License
 
-Distributed under the [MIT License](LICENSE). Third-party platforms and APIs remain subject to their own terms.
+[MIT License](LICENSE). Third-party services remain subject to their respective terms.
 
-*Design clearly. Validate continuously. Automate responsibly.*
+*Build modularly. Validate every branch. Automate responsibly.*
