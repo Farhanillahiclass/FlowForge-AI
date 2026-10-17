@@ -8,7 +8,7 @@ This report separates **static repository checks** from **live integration tests
 - Located all **20 numbered workflow JSON files**.
 - Parsed the JSON content for all 20 workflow files successfully.
 - Reviewed their node lists and connection maps. Several workflows intentionally contain `No Operation` placeholder nodes whose labels say to connect/configure a real provider action. Those are **not complete end-to-end automations yet**.
-- Added a separate Apps Script source folder for each of the 20 workflow purposes, each with its own sheet name/schema and request validation.
+- Each `workflows/<workflow-name>/` folder now contains `README.md`, `workflow.json`, and `Code.gs` together. The Apps Script files are copied from the dedicated adapters and each has its own sheet schema/request validation. The older top-level `workflow-guides/` and `apps-script/` paths remain as reference copies for now.
 - Added `scripts/validate_workflows.py` so you can run repeatable local checks for JSON syntax, duplicate node names, and connection targets.
 
 ### Live testing status
@@ -26,7 +26,7 @@ The script checks each `workflows/*.json` file for valid JSON, unique node names
 
 ## Apps Script setup — each workflow separately
 
-See [Apps Script directory](apps-script/README.md). Each workflow has its own folder and `Code.gs` file. These are **optional Google Sheets adapters**: a workflow that does not need Google Sheets should not call its adapter. The scripts are distinct, but still require deployment, correct Script Properties, and a real test before use.
+Open any `workflows/<workflow-name>/` folder to find that workflow's `README.md`, `workflow.json`, and `Code.gs` together. These are **optional Google Sheets adapters**: a workflow that does not need Google Sheets should not call its adapter. The top-level `apps-script/` and `workflow-guides/` folders remain reference copies. The scripts are distinct, but still require deployment, correct Script Properties, and a real test before use.
 
 For each script:
 1. Create a separate test spreadsheet and a separate Apps Script project.
