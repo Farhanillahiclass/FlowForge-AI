@@ -1,9 +1,9 @@
 {
-  "name": "Currency Rates USD",
+  "name": "19 — USD Reference Exchange Rates",
   "nodes": [
     {
-      "id": "trigger-19",
-      "name": "When clicking 'Execute workflow'",
+      "id": "manual",
+      "name": "Run workflow manually",
       "type": "n8n-nodes-base.manualTrigger",
       "typeVersion": 1,
       "position": [
@@ -13,8 +13,8 @@
       "parameters": {}
     },
     {
-      "id": "action-19",
-      "name": "Fetch Public API",
+      "id": "request",
+      "name": "Fetch public API",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
@@ -23,16 +23,53 @@
       ],
       "parameters": {
         "url": "https://api.frankfurter.app/latest?from=USD",
-        "options": {}
+        "method": "GET",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 15000
+        }
+      }
+    },
+    {
+      "id": "process",
+      "name": "Normalize API result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        760,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return $input.all().map(i => ({json: {sourceUrl: \"https://api.frankfurter.app/latest?from=USD\", fetchedAt: new Date().toISOString(), data: i.json}}));"
       }
     }
   ],
   "connections": {
-    "When clicking 'Execute workflow'": {
+    "Run workflow manually": {
       "main": [
         [
           {
-            "node": "Fetch Public API",
+            "node": "Fetch public API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch public API": {
+      "main": [
+        [
+          {
+            "node": "Normalize API result",
             "type": "main",
             "index": 0
           }
@@ -42,11 +79,12 @@
   },
   "active": false,
   "settings": {
-    "executionOrder": "v1"
+    "executionOrder": "v1",
+    "saveManualExecutions": true
   },
-  "versionId": "flowforge-template-19",
+  "versionId": "flowforge-pro-19",
   "meta": {
-    "templateCredsSetupCompleted": true
+    "templateCredsSetupCompleted": false
   },
   "tags": []
 }
