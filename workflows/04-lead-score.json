@@ -1,38 +1,73 @@
 {
-  "name": "Sample Lead Scoring",
+  "name": "Customer Welcome Email",
   "nodes": [
     {
       "id": "trigger-4",
-      "name": "When clicking 'Execute workflow'",
-      "type": "n8n-nodes-base.manualTrigger",
-      "typeVersion": 1,
+      "name": "Receive request",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
       "position": [
-        240,
+        220,
         300
       ],
-      "parameters": {}
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "customer-welcome",
+        "responseMode": "lastNode",
+        "options": {}
+      }
     },
     {
-      "id": "action-4",
-      "name": "Process Example Data",
+      "id": "process-4",
+      "name": "Validate and prepare data",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        500,
+        470,
         300
       ],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const leads=[{name:\"Amina\",email:\"amina@example.com\",companySize:30,requestedDemo:true},{name:\"Bilal\",email:\"\",companySize:2,requestedDemo:false},{name:\"Sara\",email:\"sara@example.com\",companySize:120,requestedDemo:true}];return leads.map(x=>{let score=0;if(x.email.includes(\"@\"))score+=25;if(x.companySize>=20)score+=25;if(x.requestedDemo)score+=50;return {json:{...x,score,priority:score>=75?\"high\":score>=40?\"medium\":\"low\"}}});"
+        "jsCode": "const b=$json.body||$json;const name=String(b.name||\"there\").trim();const email=String(b.email||\"\").trim().toLowerCase();return [{json:{name,email,valid:/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email),subject:\"Welcome — thanks for contacting us\",body:\"Hi \"+name+\",\\n\\nThanks for contacting our team. We have received your message and will follow up soon.\\n\\nBest regards,\\nCustomer Success\",receivedAt:new Date().toISOString()}}];"
+      }
+    },
+    {
+      "id": "gmail-4",
+      "name": "Send Gmail notification",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        720,
+        300
+      ],
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "sendTo": "={{ $json.email || 'YOUR_TEAM_EMAIL@example.com' }}",
+        "subject": "={{ $json.subject || $json.emailSubject || 'FlowForge-AI notification' }}",
+        "emailType": "text",
+        "message": "={{ $json.body || $json.emailBody || $json.alert || $json.reviewText || $json.slackText || JSON.stringify($json) }}",
+        "options": {}
       }
     }
   ],
   "connections": {
-    "When clicking 'Execute workflow'": {
+    "Receive request": {
       "main": [
         [
           {
-            "node": "Process Example Data",
+            "node": "Validate and prepare data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate and prepare data": {
+      "main": [
+        [
+          {
+            "node": "Send Gmail notification",
             "type": "main",
             "index": 0
           }
@@ -42,11 +77,12 @@
   },
   "active": false,
   "settings": {
-    "executionOrder": "v1"
+    "executionOrder": "v1",
+    "saveManualExecutions": true
   },
-  "versionId": "flowforge-template-4",
+  "versionId": "flowforge-pro-4",
   "meta": {
-    "templateCredsSetupCompleted": true
+    "templateCredsSetupCompleted": false
   },
   "tags": []
 }
