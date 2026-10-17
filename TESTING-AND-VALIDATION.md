@@ -1,26 +1,77 @@
-# Validation and Test Report — Muhammad Farhan
+# Testing and Validation Report — Muhammad Farhan
 
-## Repository-level checks
-- 20 numbered business workflow JSON files are present in the portfolio branch.
-- Individual setup and credential guidance is stored in `workflow-guides/`.
-- Google Apps Script source is in `apps-script/FlowForgeSheetGateway.gs`.
+## Scope and honest status
 
-## Important limitation
-**This is not a live n8n execution report.** The GitHub-only environment cannot authenticate to your n8n instance or verify connected Google, Gmail, Meta, Telegram, Slack, Calendar or YouTube accounts. Do not claim that all 20 flows passed end-to-end tests until you run the steps below.
+This report separates **static repository checks** from **live integration tests**. A JSON file parsing successfully does not prove the workflow will execute correctly in n8n.
 
-## Required tests in n8n
-1. Record the installed n8n version and deployment type.
-2. Import every JSON file; check for missing nodes and invalid parameters.
-3. Replace placeholders/No Operation nodes with real integrations.
-4. Use synthetic data and test credentials only.
-5. Run success, invalid-input, duplicate, timeout/permission-error and notification-failure tests.
-6. Save execution IDs/outcomes without sharing credentials or customer data.
-7. Keep workflows inactive until critical tests pass.
+### Static checks completed during repository review
+- Located all **20 numbered workflow JSON files**.
+- Parsed the JSON content for all 20 workflow files successfully.
+- Reviewed their node lists and connection maps. Several workflows intentionally contain `No Operation` placeholder nodes whose labels say to connect/configure a real provider action. Those are **not complete end-to-end automations yet**.
+- Added a separate Apps Script source folder for each of the 20 workflow purposes, each with its own sheet name/schema and request validation.
+- Added `scripts/validate_workflows.py` so you can run repeatable local checks for JSON syntax, duplicate node names, and connection targets.
 
-## Google Apps Script gateway test
-1. Create a test Google Sheet, set Script Properties `SPREADSHEET_ID` and a strong random `FLOWFORGE_TOKEN`.
-2. Run `setupSheetTabs()` and verify tabs/headers.
-3. Deploy as web app using an access policy appropriate for your environment.
-4. POST a synthetic request from n8n to the deployment URL with `?token=YOUR_TEST_TOKEN` and JSON body containing `kind`, stable `requestId`, and `data`.
-5. Repeat the same requestId and verify duplicate detection; test invalid token, malformed JSON and unknown kind.
-6. Rotate/delete test tokens after use. Query-string secrets can appear in logs; use an authenticated gateway for production or sensitive data.
+### Live testing status
+**Not run / not verified.** This environment does not have access to your running n8n instance or your Google, Gmail, Meta, Telegram, Slack, Calendar or YouTube credentials. I cannot truthfully mark all 20 workflows as live-tested. The Apps Script files have also not been deployed to Google Apps Script, so their runtime behavior is not confirmed.
+
+## Run static validation locally
+
+From the repository root:
+
+```bash
+python scripts/validate_workflows.py
+```
+
+The script checks each `workflows/*.json` file for valid JSON, unique node names and connection references that point to existing nodes. It does not validate provider credentials, node parameter schemas, or remote API behavior.
+
+## Apps Script setup — each workflow separately
+
+See [Apps Script directory](apps-script/README.md). Each workflow has its own folder and `Code.gs` file. These are **optional Google Sheets adapters**: a workflow that does not need Google Sheets should not call its adapter. The scripts are distinct, but still require deployment, correct Script Properties, and a real test before use.
+
+For each script:
+1. Create a separate test spreadsheet and a separate Apps Script project.
+2. Set Script Properties: `SPREADSHEET_ID` and a strong random `FLOWFORGE_TOKEN`.
+3. Paste the matching `Code.gs`, run `setupSheet()`, and authorize permissions.
+4. Deploy using an access policy approved for your environment. Do not use confidential customer data in a public test deployment.
+5. Test success, wrong token, malformed JSON, missing `requestId`, duplicate `requestId`, and spreadsheet permission errors.
+6. Send JSON in the POST body: `{"token":"…","requestId":"stable-test-id","data":{}}`. Never commit real tokens to GitHub.
+
+The token-in-body pattern is safer than a token in a URL query string, but it is not a complete production identity system by itself. For sensitive production data, use an authenticated gateway and review permissions/logging.
+
+## Required n8n import and runtime test for all 20 workflows
+
+For every file in `workflows/`:
+1. Import into a **test** n8n project and record the n8n version.
+2. Resolve all red/missing nodes and replace every `No Operation` placeholder with the intended provider/action node.
+3. Configure credentials inside n8n; never place API keys or passwords in JSON.
+4. Inspect node parameters and expressions, then execute with synthetic data.
+5. Test the success path and invalid input; where relevant test duplicate requests, retries, API timeout/permission failures, empty datasets and notification failure.
+6. Confirm side effects in the destination (test sheet, test inbox, calendar sandbox, or provider test account).
+7. Keep publishing, newsletter, payment and customer-facing actions behind human approval and consent checks until verified.
+8. Record workflow name, test date, input type, execution ID, expected/actual outcome and pass/fail. Do not include secrets or private customer information.
+9. Activate only after all required tests pass.
+
+## Per-workflow evidence checklist
+
+- [ ] 01 Lead Capture CRM
+- [ ] 02 Lead Scoring & Routing
+- [ ] 03 Email Follow-up Sequence
+- [ ] 04 Inbox Triage Assistant
+- [ ] 05 Customer Support Desk
+- [ ] 06 FAQ & Human Handoff
+- [ ] 07 Meeting Booking System
+- [ ] 08 Meeting Reminders
+- [ ] 09 Client Onboarding
+- [ ] 10 Invoice Payment Reminders
+- [ ] 11 Content Creation & Approval
+- [ ] 12 Instagram Publishing Pipeline
+- [ ] 13 YouTube Publishing Assistant
+- [ ] 14 Content Repurposing
+- [ ] 15 Newsletter Campaign Builder
+- [ ] 16 Weekly Business Report
+- [ ] 17 Feedback Routing
+- [ ] 18 Workflow Error Monitor
+- [ ] 19 API Health Monitor
+- [ ] 20 Telegram Business Assistant
+
+**Do not describe a workflow as fully tested until its execution evidence is recorded above.**
