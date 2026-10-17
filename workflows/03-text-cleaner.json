@@ -1,0 +1,52 @@
+{
+  "name": "Text Cleaner",
+  "nodes": [
+    {
+      "id": "trigger-3",
+      "name": "When clicking 'Execute workflow'",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        240,
+        300
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "action-3",
+      "name": "Process Example Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        500,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const s=\"  FlowForge-AI   builds USEFUL workflows.  \";const cleaned=s.trim().replace(/\\s+/g,\" \");return [{json:{original:s,cleaned,lowercase:cleaned.toLowerCase(),wordCount:cleaned.split(\" \").length}}];"
+      }
+    }
+  ],
+  "connections": {
+    "When clicking 'Execute workflow'": {
+      "main": [
+        [
+          {
+            "node": "Process Example Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "flowforge-template-3",
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "tags": []
+}
