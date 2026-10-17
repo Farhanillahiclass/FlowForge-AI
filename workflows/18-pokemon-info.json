@@ -1,0 +1,52 @@
+{
+  "name": "Pokémon Info",
+  "nodes": [
+    {
+      "id": "trigger-18",
+      "name": "When clicking 'Execute workflow'",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        240,
+        300
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "action-18",
+      "name": "Fetch Public API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        500,
+        300
+      ],
+      "parameters": {
+        "url": "https://pokeapi.co/api/v2/pokemon/pikachu",
+        "options": {}
+      }
+    }
+  ],
+  "connections": {
+    "When clicking 'Execute workflow'": {
+      "main": [
+        [
+          {
+            "node": "Fetch Public API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "flowforge-template-18",
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "tags": []
+}
