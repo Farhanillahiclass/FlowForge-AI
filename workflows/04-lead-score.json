@@ -1,9 +1,9 @@
 {
-  "name": "Customer Welcome Email",
+  "name": "04 — Lead Qualification and Scoring",
   "nodes": [
     {
-      "id": "trigger-4",
-      "name": "Receive request",
+      "id": "webhook",
+      "name": "Receive POST request",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2.1,
       "position": [
@@ -12,62 +12,60 @@
       ],
       "parameters": {
         "httpMethod": "POST",
-        "path": "customer-welcome",
+        "path": "lead-score",
         "responseMode": "lastNode",
         "options": {}
       }
     },
     {
-      "id": "process-4",
-      "name": "Validate and prepare data",
+      "id": "process",
+      "name": "Validate and process request",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        470,
+        480,
         300
       ],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const b=$json.body||$json;const name=String(b.name||\"there\").trim();const email=String(b.email||\"\").trim().toLowerCase();return [{json:{name,email,valid:/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email),subject:\"Welcome — thanks for contacting us\",body:\"Hi \"+name+\",\\n\\nThanks for contacting our team. We have received your message and will follow up soon.\\n\\nBest regards,\\nCustomer Success\",receivedAt:new Date().toISOString()}}];"
+        "jsCode": "const b=$json.body||$json;const email=String(b.email||\"\").trim().toLowerCase();const budget=Number(b.budget||0);const intent=String(b.intent||\"\").toLowerCase();const company=String(b.company||\"\").trim();const score=(/buy|ready|quote|demo/.test(intent)?40:0)+(budget>=1000?25:budget>0?10:0)+(company?15:0)+(/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)?20:0);return [{json:{name:String(b.name||\"\"),email,company,budget:Number.isFinite(budget)?budget:null,intent,leadScore:score,leadTier:score>=70?\"hot\":score>=40?\"warm\":\"cold\",validEmail:/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email),createdAt:new Date().toISOString(),disclaimer:\"Rule-based score; calibrate against your real sales process.\"}}];"
       }
     },
     {
-      "id": "gmail-4",
-      "name": "Send Gmail notification",
-      "type": "n8n-nodes-base.gmail",
-      "typeVersion": 2.1,
+      "id": "respond",
+      "name": "Return JSON response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
       "position": [
-        720,
+        760,
         300
       ],
       "parameters": {
-        "resource": "message",
-        "operation": "send",
-        "sendTo": "={{ $json.email || 'YOUR_TEAM_EMAIL@example.com' }}",
-        "subject": "={{ $json.subject || $json.emailSubject || 'FlowForge-AI notification' }}",
-        "emailType": "text",
-        "message": "={{ $json.body || $json.emailBody || $json.alert || $json.reviewText || $json.slackText || JSON.stringify($json) }}",
-        "options": {}
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "responseCode": 200
+        }
       }
     }
   ],
   "connections": {
-    "Receive request": {
+    "Receive POST request": {
       "main": [
         [
           {
-            "node": "Validate and prepare data",
+            "node": "Validate and process request",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Validate and prepare data": {
+    "Validate and process request": {
       "main": [
         [
           {
-            "node": "Send Gmail notification",
+            "node": "Return JSON response",
             "type": "main",
             "index": 0
           }
