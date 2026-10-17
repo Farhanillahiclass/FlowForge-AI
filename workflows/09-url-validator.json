@@ -1,0 +1,52 @@
+{
+  "name": "URL List Validator",
+  "nodes": [
+    {
+      "id": "trigger-9",
+      "name": "When clicking 'Execute workflow'",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        240,
+        300
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "action-9",
+      "name": "Process Example Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        500,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const urls=[\"https://n8n.io\",\"https://github.com\",\"not-a-url\",\"http://example.com\"];return urls.map(value=>{let valid=false;try{const u=new URL(value);valid=[\"http:\",\"https:\"].includes(u.protocol)}catch{}return {json:{url:value,valid}}});"
+      }
+    }
+  ],
+  "connections": {
+    "When clicking 'Execute workflow'": {
+      "main": [
+        [
+          {
+            "node": "Process Example Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "flowforge-template-9",
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "tags": []
+}
