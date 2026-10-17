@@ -1,18 +1,27 @@
-# FlowForge-AI Workflow Catalog
+# FlowForge-AI — Workflows
 
-This folder contains 20 importable n8n JSON templates.
+Maintainer: **Muhammad Farhan**
 
-## Import
+This folder contains the n8n workflow JSON files and setup documentation.
 
-1. Open your n8n instance.
-2. Choose **Import from File** from the workflow menu.
-3. Select any JSON file in this folder.
-4. Inspect nodes and expressions, then run with sample data.
+## Files
 
-## Notes
+- [Credential setup guide for all 20 workflows](CREDENTIALS-GUIDE.md) — required accounts, credentials, placeholders, and test checklist for each workflow.
+- [Main project README](../README.md) — project overview, workflow catalog, security notes, and license.
+- [MIT License](../LICENSE)
 
-- Workflows 01–13 use built-in manual trigger and Code nodes; no external API credentials are needed to test them.
-- Workflows 14–19 call public APIs and require internet access. Third-party endpoints can change, rate-limit, or become unavailable.
-- Workflow 20 accepts a POST JSON payload. Test with the webhook test URL first, and activate only when ready.
-- The sample data and rules are demonstrations, not production business logic.
-- Do not commit API keys, passwords, personal data, or private webhook URLs to a public repository.
+## Import and configure
+
+1. Open n8n and choose **Import from File**.
+2. Select the workflow JSON you want to test.
+3. Open each integration node and select/create its credential in n8n.
+4. Replace example spreadsheet IDs, tab names, channel IDs, chat IDs, recipients, and other placeholders.
+5. Test with dummy data and inspect each node's output.
+6. Activate only after end-to-end testing and webhook security review.
+
+## Important
+
+- Not every workflow needs external credentials; local examples and some public APIs may not need them.
+- OAuth scopes, API access, node versions, and provider requirements can vary.
+- A credential guide is setup documentation, not proof that a workflow is connected or production-tested.
+- Never commit passwords, API keys, OAuth tokens, bot tokens, customer data, or private webhook URLs to GitHub.
