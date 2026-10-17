@@ -1,37 +1,45 @@
 {
-  "name": "20 — Website Lead Capture to Google Sheets + Gmail",
+  "name": "20 — Website Lead Capture and Validation",
   "nodes": [
     {
+      "id": "webhook",
+      "name": "Receive website lead",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        220,
+        300
+      ],
       "parameters": {
         "httpMethod": "POST",
         "path": "website-lead-capture",
         "responseMode": "lastNode",
         "options": {}
-      },
-      "id": "lead-webhook",
-      "name": "Receive Website Lead",
-      "type": "n8n-nodes-base.webhook",
-      "typeVersion": 2.1,
-      "position": [
-        240,
-        300
-      ]
+      }
     },
     {
-      "parameters": {
-        "mode": "runOnceForAllItems",
-        "jsCode": "const b = $json.body || $json;\nconst name = String(b.name || '').trim();\nconst email = String(b.email || '').trim().toLowerCase();\nconst validEmail = /^[^\\\\s@]+@[^\\\\s@]+\\\\.[^\\\\s@]+$/.test(email);\nreturn [{ json: { name, email, company: String(b.company || ''), source: String(b.source || 'website'), message: String(b.message || ''), validEmail, status: 'new', receivedAt: new Date().toISOString() } }];"
-      },
-      "id": "normalize-lead",
-      "name": "Validate and Normalize Lead",
+      "id": "process",
+      "name": "Validate and normalize lead",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
         480,
         300
-      ]
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const b = $json.body || $json;\nconst name = String(b.name || '').trim();\nconst email = String(b.email || '').trim().toLowerCase();\nconst validEmail = /^[^\\\\s@]+@[^\\\\s@]+\\\\.[^\\\\s@]+$/.test(email);\nreturn [{json:{name,email,company:String(b.company||''),source:String(b.source||'website'),message:String(b.message||''),validEmail,status:'new',receivedAt:new Date().toISOString()}}];"
+      }
     },
     {
+      "id": "if",
+      "name": "Email valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        740,
+        300
+      ],
       "parameters": {
         "conditions": {
           "options": {
@@ -55,17 +63,17 @@
           "combinator": "and"
         },
         "options": {}
-      },
-      "id": "valid-email-check",
-      "name": "Is Email Valid?",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.2,
-      "position": [
-        720,
-        300
-      ]
+      }
     },
     {
+      "id": "sheets",
+      "name": "Save lead to Google Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        1000,
+        220
+      ],
       "parameters": {
         "operation": "append",
         "documentId": {
@@ -87,127 +95,119 @@
           "convertFieldsToString": false
         },
         "options": {}
-      },
-      "id": "append-lead-sheet",
-      "name": "Save Lead to Google Sheets",
-      "type": "n8n-nodes-base.googleSheets",
-      "typeVersion": 4.5,
-      "position": [
-        980,
-        220
-      ]
+      }
     },
     {
+      "id": "gmail",
+      "name": "Send customer acknowledgement",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        1260,
+        220
+      ],
       "parameters": {
         "resource": "message",
         "operation": "send",
         "sendTo": "={{ $json.email }}",
         "subject": "Thanks for contacting us",
         "emailType": "text",
-        "message": "=Hi {{ $json.name || 'there' }},\\n\\nThanks for contacting us. We have received your inquiry and our team will follow up soon.\\n\\nRegards,\\nCustomer Success",
+        "message": "=Hi {{ $json.name || 'there' }},\n\nThanks for contacting us. We received your inquiry and will follow up soon.\n\nRegards,\nCustomer Success",
         "options": {}
-      },
-      "id": "send-customer-email",
-      "name": "Send Customer Acknowledgement",
-      "type": "n8n-nodes-base.gmail",
-      "typeVersion": 2.1,
-      "position": [
-        1230,
-        220
-      ]
+      }
     },
     {
+      "id": "ok",
+      "name": "Return success response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        1510,
+        220
+      ],
       "parameters": {
         "respondWith": "json",
         "responseBody": "={\"ok\":true,\"message\":\"Lead received\"}",
         "options": {
           "responseCode": 200
         }
-      },
-      "id": "success-response",
-      "name": "Return Success Response",
+      }
+    },
+    {
+      "id": "bad",
+      "name": "Return validation error",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.4,
       "position": [
-        1480,
-        220
-      ]
-    },
-    {
+        1000,
+        430
+      ],
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={\"ok\":false,\"message\":\"A valid email address is required\"}",
+        "responseBody": "={\"ok\":false,\"message\":\"A valid email is required\"}",
         "options": {
           "responseCode": 400
         }
-      },
-      "id": "invalid-response",
-      "name": "Return Validation Error",
-      "type": "n8n-nodes-base.respondToWebhook",
-      "typeVersion": 1.4,
-      "position": [
-        980,
-        430
-      ]
+      }
     }
   ],
   "connections": {
-    "Receive Website Lead": {
+    "Receive website lead": {
       "main": [
         [
           {
-            "node": "Validate and Normalize Lead",
+            "node": "Validate and normalize lead",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Validate and Normalize Lead": {
+    "Validate and normalize lead": {
       "main": [
         [
           {
-            "node": "Is Email Valid?",
+            "node": "Email valid?",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Is Email Valid?": {
+    "Email valid?": {
       "main": [
         [
           {
-            "node": "Save Lead to Google Sheets",
+            "node": "Save lead to Google Sheets",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "Return Validation Error",
+            "node": "Return validation error",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Save Lead to Google Sheets": {
+    "Save lead to Google Sheets": {
       "main": [
         [
           {
-            "node": "Send Customer Acknowledgement",
+            "node": "Send customer acknowledgement",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Send Customer Acknowledgement": {
+    "Send customer acknowledgement": {
       "main": [
         [
           {
-            "node": "Return Success Response",
+            "node": "Return success response",
             "type": "main",
             "index": 0
           }
@@ -220,7 +220,7 @@
     "executionOrder": "v1",
     "saveManualExecutions": true
   },
-  "versionId": "flowforge-lead-capture-v2",
+  "versionId": "flowforge-pro-20",
   "meta": {
     "templateCredsSetupCompleted": false
   },
