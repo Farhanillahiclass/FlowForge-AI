@@ -1,0 +1,52 @@
+{
+  "name": "Deadline Checker",
+  "nodes": [
+    {
+      "id": "trigger-12",
+      "name": "When clicking 'Execute workflow'",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        240,
+        300
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "action-12",
+      "name": "Process Example Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        500,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const a=[{task:\"Submit project\",due:\"2026-10-20\"},{task:\"Review docs\",due:\"2026-10-15\"},{task:\"Plan sprint\",due:\"2026-10-25\"}];const today=new Date();today.setUTCHours(0,0,0,0);return a.map(x=>{const due=new Date(x.due+\"T00:00:00Z\");const days=Math.ceil((due-today)/86400000);return {json:{...x,daysRemaining:days,status:days<0?\"overdue\":days===0?\"due-today\":\"upcoming\"}}});"
+      }
+    }
+  ],
+  "connections": {
+    "When clicking 'Execute workflow'": {
+      "main": [
+        [
+          {
+            "node": "Process Example Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "flowforge-template-12",
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "tags": []
+}
