@@ -28,7 +28,7 @@
       ],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const b = $json.body || $json;\nconst name = String(b.name || '').trim();\nconst email = String(b.email || '').trim().toLowerCase();\nconst validEmail = /^[^\\\\s@]+@[^\\\\s@]+\\\\.[^\\\\s@]+$/.test(email);\nreturn [{json:{name,email,company:String(b.company||''),source:String(b.source||'website'),message:String(b.message||''),validEmail,status:'new',receivedAt:new Date().toISOString()}}];"
+        "jsCode": "const b = $json.body || $json;\nconst name = String(b.name || '').trim();\nconst email = String(b.email || '').trim().toLowerCase();\nconst validEmail = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email);\nreturn [{ json: { name, email, company: String(b.company || '').trim(), source: String(b.source || 'website'), message: String(b.message || '').trim(), validEmail, status: 'new', receivedAt: new Date().toISOString() } }];"
       }
     },
     {
@@ -87,8 +87,16 @@
           "mode": "name"
         },
         "columns": {
-          "mappingMode": "autoMapInputData",
-          "value": {},
+          "mappingMode": "defineBelow",
+          "value": {
+            "name": "={{ $node[\"Validate and normalize lead\"].json.name }}",
+            "email": "={{ $node[\"Validate and normalize lead\"].json.email }}",
+            "company": "={{ $node[\"Validate and normalize lead\"].json.company }}",
+            "source": "={{ $node[\"Validate and normalize lead\"].json.source }}",
+            "message": "={{ $node[\"Validate and normalize lead\"].json.message }}",
+            "status": "={{ $node[\"Validate and normalize lead\"].json.status }}",
+            "receivedAt": "={{ $node[\"Validate and normalize lead\"].json.receivedAt }}"
+          },
           "matchingColumns": [],
           "schema": [],
           "attemptToConvertTypes": false,
@@ -109,10 +117,10 @@
       "parameters": {
         "resource": "message",
         "operation": "send",
-        "sendTo": "={{ $json.email }}",
+        "sendTo": "={{ $node[\"Validate and normalize lead\"].json.email }}",
         "subject": "Thanks for contacting us",
         "emailType": "text",
-        "message": "=Hi {{ $json.name || 'there' }},\n\nThanks for contacting us. We received your inquiry and will follow up soon.\n\nRegards,\nCustomer Success",
+        "message": "=Hi {{ $node[\"Validate and normalize lead\"].json.name || \"there\" }},\n\nThanks for contacting us. We received your inquiry and our team will follow up soon.\n\nRegards,\nCustomer Success",
         "options": {}
       }
     },
