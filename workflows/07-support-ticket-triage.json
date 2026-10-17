@@ -1,0 +1,52 @@
+{
+  "name": "Support Ticket Triage",
+  "nodes": [
+    {
+      "id": "trigger-7",
+      "name": "When clicking 'Execute workflow'",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        240,
+        300
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "action-7",
+      "name": "Process Example Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        500,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const a=[{id:101,subject:\"Payment failed\",message:\"Payment failed today\"},{id:102,subject:\"Feature idea\",message:\"Please add dark mode\"},{id:103,subject:\"Account locked\",message:\"Cannot login\"}];return a.map(x=>{const s=(x.subject+\" \"+x.message).toLowerCase();const priority=/payment|failed|locked|cannot login|urgent/.test(s)?\"high\":/bug|error|broken/.test(s)?\"medium\":\"low\";return {json:{...x,priority,queue:priority===\"high\"?\"urgent-support\":\"general-support\"}}});"
+      }
+    }
+  ],
+  "connections": {
+    "When clicking 'Execute workflow'": {
+      "main": [
+        [
+          {
+            "node": "Process Example Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "flowforge-template-7",
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "tags": []
+}
