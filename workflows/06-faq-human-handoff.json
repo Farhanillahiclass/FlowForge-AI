@@ -1,0 +1,142 @@
+{
+  "name": "06 - FAQ and Human Handoff",
+  "nodes": [
+    {
+      "id": "trigger",
+      "name": "Receive Customer Question",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        200,
+        300
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "faq-human-handoff",
+        "responseMode": "lastNode",
+        "options": {}
+      }
+    },
+    {
+      "id": "faq",
+      "name": "Match Approved FAQ",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        450,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const b=$json.body||$json;const q=String(b.question||b.message||'').toLowerCase();const faqs=[{keys:['pricing','price','cost'],answer:'Our team can share current pricing after learning your requirements.'},{keys:['hours','timing','open'],answer:'Please share your timezone so our team can confirm availability.'},{keys:['refund','return'],answer:'A support specialist will review your request.'}];const m=faqs.find(f=>f.keys.some(k=>q.includes(k)));return [{json:{question:b.question||b.message||'',email:b.email||'',answer:m?.answer||'A support specialist will follow up.',route:m?'faq-suggestion':'human-review',needsHuman:!m,createdAt:new Date().toISOString()}}];"
+      }
+    },
+    {
+      "id": "if",
+      "name": "Needs Human Review?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        700,
+        300
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "human",
+              "leftValue": "={{ $json.needsHuman }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "handoff",
+      "name": "Human Handoff — Connect Telegram or Slack",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        960,
+        200
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "answer",
+      "name": "FAQ Suggestion — Connect Customer Reply",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        960,
+        400
+      ],
+      "parameters": {}
+    }
+  ],
+  "connections": {
+    "Receive Customer Question": {
+      "main": [
+        [
+          {
+            "node": "Match Approved FAQ",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Match Approved FAQ": {
+      "main": [
+        [
+          {
+            "node": "Needs Human Review?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Needs Human Review?": {
+      "main": [
+        [
+          {
+            "node": "Human Handoff — Connect Telegram or Slack",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "FAQ Suggestion — Connect Customer Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "ffai-06",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}

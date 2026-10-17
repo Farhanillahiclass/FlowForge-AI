@@ -1,94 +1,65 @@
-<div align="center">
+# FlowForge-AI — Client-Oriented n8n Automation Portfolio
 
-<img width="100%" src="https://capsule-render.vercel.app/api?type=waving&color=0:111827,45:4338CA,100:EA4B71&height=190&section=header&text=FlowForge-AI&fontSize=44&fontColor=FFFFFF&animation=fadeIn&desc=Professional%20n8n%20Workflow%20Templates&descAlignY=65&descSize=16" alt="FlowForge-AI" />
+**Maintainer:** Muhammad Farhan  
+**Focus:** Business leads, customer support, content operations, scheduling, and service monitoring.
 
-![n8n](https://img.shields.io/badge/n8n-Workflow%20Automation-EA4B71?style=for-the-badge&logo=n8n&logoColor=white)
-![Workflows](https://img.shields.io/badge/Workflow%20Templates-20-4F46E5?style=for-the-badge)
-![License](https://img.shields.io/badge/License-MIT-0F766E?style=for-the-badge)
+> **Honest project status:** These are portfolio templates under configuration. Some workflows include working intake/processing nodes; nodes named “Configure”, “Connect”, or implemented as No Operation placeholders still need real provider action nodes. No workflow should be described as production-ready until it imports correctly and passes an end-to-end test with real credentials in your n8n version.
 
-**Practical workflow templates for data processing, business operations, and API integrations.**
+## Import and use
+1. Open a workflow JSON below and download the file.
+2. In n8n, choose **Import from File**.
+3. Inspect node types, parameters, and connections for your n8n version.
+4. Create credentials in n8n Credentials; never place secrets in JSON/GitHub.
+5. Replace placeholder spreadsheet/calendar IDs, recipient addresses, and business rules.
+6. Configure every node labelled “Configure/Connect”; these labels mark unfinished integration steps.
+7. Test success, invalid input, duplicates, API failures, and notification failures.
+8. Activate only after end-to-end verification.
 
-Maintained by **Muhammad Farhan**
+## 20 business automation systems
 
-</div>
-
-## About
-
-FlowForge-AI is a collection of importable n8n workflow JSON templates. The project demonstrates structured input processing, validation, API requests, lead qualification, support triage, and business-oriented workflow patterns.
-
-**Important:** These are workflow templates, not a claim that all 20 are production-ready or live-tested. Some process data supplied to them; others call public APIs. External integrations require credentials and node configuration, and business-critical workflows must be tested in your own n8n instance.
-
-## Quick start
-
-1. Open your n8n instance.
-2. Download a JSON file from the [workflows folder](./workflows/).
-3. Select **Import from File** in n8n.
-4. Review node settings, expressions, and connections.
-5. Configure required credentials in n8n's **Credentials** section.
-6. Replace example IDs, sheet names, chat IDs, and destinations.
-7. Execute with safe test data and inspect each node's output.
-8. Activate only after end-to-end testing.
-
-## Workflow catalog
-
-| # | Workflow | Trigger | Purpose / setup |
+| # | Workflow | Trigger | Purpose |
 |---:|---|---|---|
-| 01 | [Workflow Health Check](workflows/01-hello-world.json) | Manual | Confirms workflow execution and returns status metadata |
-| 02 | [Business Date and Time](workflows/02-current-time.json) | Manual | Formats UTC date/time and timestamp |
-| 03 | [Text Intake Cleaner](workflows/03-text-cleaner.json) | Manual | Normalizes text and reports length/word count |
-| 04 | [Lead Qualification](workflows/04-lead-score.json) | Webhook | Applies configurable rule-based lead scoring |
-| 05 | [Expense Summary](workflows/05-expense-summary.json) | Manual | Validates amounts and summarizes totals by category |
-| 06 | [CRM Contact Normalizer](workflows/06-record-normalizer.json) | Manual | Normalizes names, email, and phone fields |
-| 07 | [Support Ticket Triage](workflows/07-support-ticket-triage.json) | Webhook | Classifies support ticket priority |
-| 08 | [FAQ Intent Matcher](workflows/08-faq-matcher.json) | Manual | Matches common question keywords to suggested responses |
-| 09 | [URL Validator](workflows/09-url-validator.json) | Manual | Checks HTTP/HTTPS URL format |
-| 10 | [Inventory Reorder Monitor](workflows/10-low-stock-alert.json) | Manual | Flags stock at or below a reorder point |
-| 11 | [Daily Team Message](workflows/11-daily-quote.json) | Manual | Returns a rotating internal team message |
-| 12 | [Deadline and SLA Monitor](workflows/12-deadline-checker.json) | Manual | Classifies overdue and upcoming deadlines |
-| 13 | [Data Quality Gate](workflows/13-data-quality-check.json) | Manual | Flags missing or malformed fields |
-| 14 | [Lahore Weather API](workflows/14-weather-lahore.json) | Manual + HTTP | Fetches public weather data from Open-Meteo |
-| 15 | [Repository Health Snapshot](workflows/15-github-repo-info.json) | Manual + HTTP | Fetches FlowForge-AI repository metadata |
-| 16 | [Public API Example](workflows/16-sample-posts.json) | Manual + HTTP | Fetches example posts from JSONPlaceholder |
-| 17 | [Public API Response Example](workflows/17-random-joke.json) | Manual + HTTP | Fetches a response from a public joke API |
-| 18 | [Pokémon API Lookup](workflows/18-pokemon-info.json) | Manual + HTTP | Fetches public PokéAPI data |
-| 19 | [USD Reference Rates](workflows/19-currency-rates.json) | Manual + HTTP | Fetches reference exchange rates from Frankfurter |
-| 20 | [Website Lead Capture](workflows/20-webhook-lead-capture.json) | POST Webhook | Validates and normalizes a website lead; configure the Sheets/Gmail steps and credentials as needed |
+| 01 | [Lead Capture & CRM](workflows/01-lead-capture-crm.json) | Webhook | Validate inbound lead, append to Sheets, notify sales by Gmail |
+| 02 | [Lead Scoring & Routing](workflows/02-lead-scoring-routing.json) | Webhook | Calculate configurable lead score and hot/warm/cold tier |
+| 03 | [Email Follow-up Sequence](workflows/03-email-follow-up-sequence.json) | Schedule | Follow-up setup blueprint; needs consent checks, data source, Gmail and send log |
+| 04 | [Professional Inbox Triage](workflows/04-inbox-triage-assistant.json) | Webhook starter | Classify messages and branch by priority; connect real inbox and alert nodes |
+| 05 | [Customer Support Desk](workflows/05-customer-support-desk.json) | Webhook | Validate and classify support ticket; connect ticket storage and notifications |
+| 06 | [FAQ & Human Handoff](workflows/06-faq-human-handoff.json) | Webhook | Match example FAQs or route to human support |
+| 07 | [Meeting Booking System](workflows/07-meeting-booking-system.json) | Webhook | Validate request and create Calendar event; add availability/conflict check |
+| 08 | [Meeting Reminder Dispatcher](workflows/08-meeting-reminders.json) | Schedule | Find events in reminder window; add send marker and notification action |
+| 09 | [Client Onboarding](workflows/09-client-onboarding.json) | Webhook | Validate client and build onboarding checklist; connect CRM, Gmail, Calendar |
+| 10 | [Invoice & Payment Reminders](workflows/10-invoice-payment-reminders.json) | Schedule | Filter unpaid overdue invoices; connect invoice source, Gmail, update node |
+| 11 | [Content Creation & Approval](workflows/11-content-creation-approval.json) | Webhook | Intake brief, draft generation and human approval integration points |
+| 12 | [Instagram Publishing Pipeline](workflows/12-instagram-publishing-pipeline.json) | Webhook | Validate caption/media and mark approval requirement; add Meta API publish steps |
+| 13 | [YouTube Publishing Assistant](workflows/13-youtube-publishing-assistant.json) | Webhook | Validate metadata; add YouTube upload and processing-status nodes |
+| 14 | [Content Repurposing](workflows/14-content-repurposing.json) | Webhook | Validate source and target platforms; add LLM and approval nodes |
+| 15 | [Newsletter Campaign Builder](workflows/15-newsletter-campaign-builder.json) | Webhook | Validate campaign; connect consented audience, suppression, and email service |
+| 16 | [Weekly Business Reporting](workflows/16-weekly-business-report.json) | Schedule | Read metrics, aggregate report inputs, connect formatted email and report log |
+| 17 | [Feedback Routing](workflows/17-feedback-routing.json) | Webhook | Classify feedback and route low ratings for private escalation |
+| 18 | [Workflow Error Monitor](workflows/18-workflow-error-monitor.json) | Error Trigger | Sanitize error context; connect alert node and set as n8n Error Workflow |
+| 19 | [API Health Monitor](workflows/19-api-health-monitor.json) | Schedule | Check APIs and normalize status; add robust failure-state tracking/alerts |
+| 20 | [Telegram Business Assistant](workflows/20-telegram-business-assistant.json) | Webhook starter | Parse commands and route; connect Telegram Trigger/send and CRM actions |
 
-## Credential setup
+## Credential and setup guide
+Read [the workflow-by-workflow credential guide](workflows/CREDENTIALS-GUIDE.md) for Google Sheets, Gmail, Telegram, Slack, Google Calendar, Meta/Instagram, YouTube, and LLM setup. Read [workflows README](workflows/README.md) for the catalog.
 
-See **[Credential Setup Guide](workflows/CREDENTIALS-GUIDE.md)** for workflow-by-workflow notes and testing checklists.
-
-Common rules:
-- Local/manual examples generally do not require external credentials.
-- Public API workflows require internet access; public endpoints may change or apply rate limits.
-- Google Sheets, Gmail, Slack, Telegram, Google Calendar, Instagram/Meta, and YouTube integrations require the relevant nodes, account permissions, and credential setup. Do not assume a workflow publishes content or sends a notification unless those action nodes are present and configured.
-- Store secrets in n8n Credentials. Never commit tokens, passwords, customer data, or live webhook URLs to GitHub.
-- Protect production webhooks and use least-privilege account permissions.
-
-## Testing checklist
-
-- [ ] JSON imports into your installed n8n version.
-- [ ] All node versions and parameters are accepted.
-- [ ] Credentials and destination IDs are configured.
-- [ ] Test data covers valid, invalid, and unexpected inputs.
-- [ ] API failures, timeouts, and duplicate submissions have been considered.
-- [ ] No secrets or real customer data are stored in the public repository.
-- [ ] Workflow is activated only after a complete end-to-end test.
+## Client-delivery checklist
+- [ ] Import works in the client's n8n version with no missing nodes.
+- [ ] Every “Configure/Connect” placeholder has been replaced with a real action node.
+- [ ] Credentials are selected in n8n and use least privilege.
+- [ ] Duplicate handling, privacy/consent, retries, and rate limits are addressed.
+- [ ] Error notifications and human handoff are tested.
+- [ ] Valid, invalid, and provider-failure test cases pass.
+- [ ] Real end-to-end test result is recorded before calling it production-ready.
+- [ ] No credentials, tokens, or real client data are committed.
 
 ## License
-
-Released under the [MIT License](LICENSE). Third-party platforms and APIs remain subject to their own terms.
+Released under the [MIT License](LICENSE). Third-party services are subject to their own terms.
 
 ## Author
-
 **Muhammad Farhan**  
 GitHub: [@Farhanillahiclass](https://github.com/Farhanillahiclass)  
 LinkedIn: [Muhammad Farhan](https://www.linkedin.com/in/muhammadfarhanmrs/)  
-YouTube: [FarhanMRSDeveloper](https://www.youtube.com/@FarhanMRSDeveloper)  
-Project: [FlowForge-AI](https://github.com/Farhanillahiclass/FlowForge-AI)
-
-<div align="center">
+YouTube: [FarhanMRSDeveloper](https://www.youtube.com/@FarhanMRSDeveloper)
 
 *Build carefully. Test every node. Automate responsibly.*
-
-</div>

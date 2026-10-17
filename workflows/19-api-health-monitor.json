@@ -1,0 +1,143 @@
+{
+  "name": "19 - API Health Monitor",
+  "nodes": [
+    {
+      "id": "schedule",
+      "name": "Run Health Checks",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        200,
+        300
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 24
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "http1",
+      "name": "Check GitHub API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        450,
+        200
+      ],
+      "parameters": {
+        "url": "https://api.github.com",
+        "options": {
+          "timeout": 10000
+        }
+      }
+    },
+    {
+      "id": "http2",
+      "name": "Check Open-Meteo API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        450,
+        400
+      ],
+      "parameters": {
+        "url": "https://api.open-meteo.com/v1/forecast?latitude=31.52&longitude=74.36&current=temperature_2m",
+        "options": {
+          "timeout": 10000
+        }
+      }
+    },
+    {
+      "id": "evaluate",
+      "name": "Normalize Health Check Results",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return $input.all().map(i=>({json:{checkedAt:new Date().toISOString(),target:i.json.url||i.json.request?.url||'configured endpoint',statusCode:i.json.statusCode||null,healthy:!i.json.error&&(!i.json.statusCode||i.json.statusCode<400),note:'For robust monitoring, configure HTTP node error output, timeout handling, previous-state storage, and recovery alerts.'}}));"
+      }
+    },
+    {
+      "id": "alert",
+      "name": "Alert Only on Failure or Recovery — Configure Notification",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        980,
+        300
+      ],
+      "parameters": {}
+    }
+  ],
+  "connections": {
+    "Run Health Checks": {
+      "main": [
+        [
+          {
+            "node": "Check GitHub API",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Check Open-Meteo API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check GitHub API": {
+      "main": [
+        [
+          {
+            "node": "Normalize Health Check Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Open-Meteo API": {
+      "main": [
+        [
+          {
+            "node": "Normalize Health Check Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Health Check Results": {
+      "main": [
+        [
+          {
+            "node": "Alert Only on Failure or Recovery — Configure Notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true
+  },
+  "versionId": "ffai-19-api-health-monitor",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}

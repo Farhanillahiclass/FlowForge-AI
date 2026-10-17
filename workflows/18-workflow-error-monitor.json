@@ -1,0 +1,75 @@
+{
+  "name": "18 - Workflow Error Monitor",
+  "nodes": [
+    {
+      "id": "trigger",
+      "name": "Catch Workflow Error",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        200,
+        300
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "normalize",
+      "name": "Sanitize Error Context",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        450,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const e=$json.execution||{};const w=$json.workflow||{};return [{json:{alertedAt:new Date().toISOString(),workflowName:w.name||'unknown',workflowId:w.id||'',executionId:e.id||'',executionUrl:e.url||'',lastNodeExecuted:e.lastNodeExecuted||'',errorMessage:String(e.error?.message||$json.error?.message||'Workflow failed').slice(0,500),note:'Do not include credential values or full customer payloads in alerts.'}}];"
+      }
+    },
+    {
+      "id": "notify",
+      "name": "Send Alert — Configure Slack, Telegram or Gmail",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        720,
+        300
+      ],
+      "parameters": {}
+    }
+  ],
+  "connections": {
+    "Catch Workflow Error": {
+      "main": [
+        [
+          {
+            "node": "Sanitize Error Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sanitize Error Context": {
+      "main": [
+        [
+          {
+            "node": "Send Alert — Configure Slack, Telegram or Gmail",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true
+  },
+  "versionId": "ffai-18-workflow-error-monitor",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}
