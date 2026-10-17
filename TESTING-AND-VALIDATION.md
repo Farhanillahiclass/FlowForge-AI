@@ -1,61 +1,53 @@
-# Testing and Validation Report — Muhammad Farhan
+# Testing & Validation Report — FlowForge-AI
 
-## Scope and honest status
+## Scope and status
 
-This report separates repository-level static checks from live integration tests. Valid JSON does not prove a workflow will import or run correctly in n8n.
+This repository contains 20 business-workflow templates and a modular system example. Static repository checks and live provider tests are different things.
 
-### Repository checks
-
-- The repository contains 20 numbered workflow templates.
-- Each canonical `workflows/<workflow-name>/` folder is expected to contain `README.md`, `workflow.json`, and `Code.gs`.
-- Root-level numbered JSON exports and the older `apps-script/` and `workflow-guides/` directories remain as compatibility/reference copies for existing links.
-- `scripts/validate_workflows.py` checks folder counts, required per-workflow files, JSON syntax, duplicate node names, and connection targets in both canonical folder exports and legacy JSON exports.
-- GitHub Actions runs the static validator on pushes and pull requests.
-
-### Live testing status
-
-**Not run / not verified.** No running n8n instance or provider accounts were available during this repository update. The Apps Script files have not been deployed to Google Apps Script in this environment. Do not claim all 20 workflows are live-tested or production-ready.
+- Each business workflow's canonical export is `workflows/<slug>/workflow.json`.
+- The system layer contains main ingress, a dispatcher, three child-workflow examples, and a central error handler.
+- **Live n8n import/execution and provider integrations have not been run from this repository environment.** Child workflow IDs and credentials still need to be selected in your n8n account.
+- The system dispatcher currently routes three event types only. The other 17 business workflows remain standalone templates and are not yet connected to the central dispatcher.
 
 ## Run static validation locally
-
-From the repository root:
 
 ```bash
 python scripts/validate_workflows.py
 ```
 
-A passing result means only that the static repository checks succeeded. It does not validate n8n import compatibility, node-specific parameters, credentials, Apps Script deployment, or live API behavior.
+The validator checks canonical folder layout, required per-workflow files, JSON syntax, duplicate node names/IDs, and connection target references across business and system workflow exports. It warns about obvious placeholders and No Operation nodes.
 
-## Apps Script setup — each workflow separately
+A static pass does not prove installed node-schema compatibility, credential access, Apps Script deployment, or successful provider API actions.
 
-Open a canonical `workflows/<workflow-name>/` folder to find its `README.md`, `workflow.json`, and `Code.gs`. The script is an **optional Google Sheets adapter**; workflows that do not use Google Sheets do not need to call it.
+## Core system import order
 
-For each script:
-1. Create a separate test spreadsheet and Apps Script project.
-2. Set Script Properties: `SPREADSHEET_ID` and a strong random `FLOWFORGE_TOKEN`.
-3. Paste the matching `Code.gs`, run `setupSheet()`, and authorize permissions.
-4. Deploy with an access policy appropriate for your environment. Never use confidential customer data in a public test deployment.
-5. Test success, wrong token, malformed JSON, missing `requestId`, duplicate `requestId`, and spreadsheet permission errors.
-6. Send JSON in the POST body: `{"token":"…","requestId":"stable-test-id","data":{}}`. Never commit real tokens to GitHub.
+1. Import `system/10-lead-capture-subflow.json`, `system/11-lead-scoring-subflow.json`, and `system/12-support-ticket-subflow.json`.
+2. Import `system/01-request-processor.json`; choose each imported child in its Execute Sub-workflow node.
+3. Import `system/00-main-ingress.json`; choose the request processor and configure Header Auth on the Webhook node.
+4. Import `system/90-central-error-handler.json`; configure the ops-log Sheet and alert recipient, then assign it under **Workflow Settings → Error Workflow** for relevant workflows.
+5. Configure every sheet ID/tab, recipient, and provider credential inside n8n. Keep all workflows inactive until test cases pass.
 
-A token in the request body is not a complete production identity system. For sensitive data, use a reviewed authenticated gateway and inspect permissions and logs.
+## Core system test cases
 
-## Required n8n import and runtime test for all 20 workflows
+| Test | Input/condition | Expected behavior |
+|---|---|---|
+| Valid lead | `eventType=lead.created`, stable requestId, valid name/email | lead row is recorded and sales notification is attempted |
+| Invalid lead | missing name or invalid email | rejected result; no external write |
+| Replay lead | repeat the same requestId | duplicate result; external side effects skipped; reconcile if prior status remains processing |
+| Score request | `eventType=lead.score_requested`, valid lead data | score/tier returned, score logged, hot-lead notification attempted |
+| Valid support ticket | `eventType=support.ticket.created`, subject and description | ticket row recorded and support notification attempted |
+| Replay ticket | repeat the same requestId | duplicate result; no new ticket notification |
+| Unsupported event | unknown eventType | structured unsupported-event result |
+| Invalid envelope | missing requestId/eventType or non-object data | validation failure response |
+| Provider failure | controlled test credential/permission failure | execution is visibly failed; central error handler logs/alerts if correctly assigned |
 
-For each workflow:
-1. Import into a **test** n8n project and record the n8n version.
-2. Resolve missing nodes and replace every `No Operation` or other placeholder with the intended provider/action node.
-3. Configure credentials inside n8n; never put API keys or passwords in JSON.
-4. Inspect node parameters and expressions, then execute with synthetic data.
-5. Test success and invalid input; where relevant test duplicates, retries, API timeout/permission failures, empty datasets, and notification failures.
-6. Confirm expected side effects in test destinations.
-7. Keep publishing, newsletter, payment, and customer-facing actions behind human approval and consent checks until verified.
-8. Record workflow name, test date, input type, execution ID, expected/actual outcome, and pass/fail. Do not include secrets or private customer information.
-9. Activate only after all required tests pass.
+The sheet-based replay check is a small-volume starter, not a strict exactly-once guarantee. Concurrent requests can race; an uncertain provider outcome can leave a `processing` record that requires reconciliation. Use a database with unique constraints and a reviewed retry/dead-letter design for high-volume or critical workloads.
 
-## Per-workflow evidence checklist
+## Test evidence for all 20 business workflows
 
-- [ ] 01 Lead Capture CRM
+Import every canonical `workflow.json` into a disposable/test n8n project. Replace placeholder nodes, configure credentials, test valid/invalid/duplicate/provider-failure paths, and confirm destination-side effects before activation.
+
+- [ ] 01 Lead Capture & CRM
 - [ ] 02 Lead Scoring & Routing
 - [ ] 03 Email Follow-up Sequence
 - [ ] 04 Inbox Triage Assistant
@@ -64,16 +56,16 @@ For each workflow:
 - [ ] 07 Meeting Booking System
 - [ ] 08 Meeting Reminders
 - [ ] 09 Client Onboarding
-- [ ] 10 Invoice Payment Reminders
+- [ ] 10 Invoice & Payment Reminders
 - [ ] 11 Content Creation & Approval
 - [ ] 12 Instagram Publishing Pipeline
 - [ ] 13 YouTube Publishing Assistant
 - [ ] 14 Content Repurposing
 - [ ] 15 Newsletter Campaign Builder
-- [ ] 16 Weekly Business Report
-- [ ] 17 Feedback Routing
+- [ ] 16 Weekly Business Reporting
+- [ ] 17 Feedback & Escalation
 - [ ] 18 Workflow Error Monitor
 - [ ] 19 API Health Monitor
 - [ ] 20 Telegram Business Assistant
 
-**Do not describe a workflow as fully tested until execution evidence is recorded.**
+Record n8n version, workflow name, test date, execution ID, expected/actual result, and pass/fail. Never include tokens or private customer data.
