@@ -1,0 +1,181 @@
+{
+  "name": "17 - Customer Feedback and Escalation",
+  "nodes": [
+    {
+      "id": "trigger",
+      "name": "Receive Feedback",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        200,
+        300
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "customer-feedback",
+        "responseMode": "lastNode",
+        "options": {}
+      }
+    },
+    {
+      "id": "classify",
+      "name": "Validate Rating and Route Feedback",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        450,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const b=$json.body||$json;const rating=Number(b.rating);const valid=Number.isFinite(rating)&&rating>=1&&rating<=5;const feedback=String(b.feedback||b.message||'').trim();return [{json:{name:String(b.name||''),email:String(b.email||''),rating,feedback,valid,route:valid&&rating<=2?'urgent-review':valid&&rating===3?'follow-up':'positive-feedback',receivedAt:new Date().toISOString()}}];"
+      }
+    },
+    {
+      "id": "if",
+      "name": "Low Rating Needs Escalation?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        700,
+        300
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "low",
+              "leftValue": "={{ $json.rating }}",
+              "rightValue": 2,
+              "operator": {
+                "type": "number",
+                "operation": "lte"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "alert",
+      "name": "Log Feedback and Alert Support — Configure Sheets + Telegram",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        960,
+        200
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "log",
+      "name": "Log Feedback — Configure Sheets/CRM",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        960,
+        400
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "reply",
+      "name": "Return Feedback Receipt",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        1200,
+        300
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({received:true,result:$json}) }}",
+        "options": {
+          "responseCode": 200
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Receive Feedback": {
+      "main": [
+        [
+          {
+            "node": "Validate Rating and Route Feedback",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Rating and Route Feedback": {
+      "main": [
+        [
+          {
+            "node": "Low Rating Needs Escalation?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Low Rating Needs Escalation?": {
+      "main": [
+        [
+          {
+            "node": "Log Feedback and Alert Support — Configure Sheets + Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log Feedback — Configure Sheets/CRM",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Feedback and Alert Support — Configure Sheets + Telegram": {
+      "main": [
+        [
+          {
+            "node": "Return Feedback Receipt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Feedback — Configure Sheets/CRM": {
+      "main": [
+        [
+          {
+            "node": "Return Feedback Receipt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true
+  },
+  "versionId": "ffai-17-customer-feedback-and-escalation",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}
