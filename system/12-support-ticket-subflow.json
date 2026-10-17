@@ -315,6 +315,19 @@
       "parameters": {
         "jsCode": "return [{json:{ok:false,status:'rejected',httpStatus:422,error:'invalid_support_ticket',requestId:$json.requestId||'',message:'A stable requestId, subject and description are required'}}];"
       }
+    },
+    {
+      "id": "prepare-processing",
+      "name": "Prepare Processing Ticket",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1570,
+        470
+      ],
+      "parameters": {
+        "jsCode": "const e=$('Normalize Support Ticket').first().json; return [{json:{requestId:e.requestId,eventType:e.eventType,source:e.source,occurredAt:e.occurredAt,subject:e.subject,description:e.description,email:e.email,customerName:e.customerName,category:e.category,priority:e.priority,valid:e.valid,status:'processing',receivedAt:e.receivedAt}}];"
+      }
     }
   ],
   "connections": {
@@ -391,7 +404,7 @@
         ],
         [
           {
-            "node": "Save Processing Ticket",
+            "node": "Prepare Processing Ticket",
             "type": "main",
             "index": 0
           }
@@ -436,6 +449,17 @@
         [
           {
             "node": "Return Created Ticket",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Processing Ticket": {
+      "main": [
+        [
+          {
+            "node": "Save Processing Ticket",
             "type": "main",
             "index": 0
           }
