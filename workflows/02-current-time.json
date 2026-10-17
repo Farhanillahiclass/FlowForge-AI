@@ -1,144 +1,38 @@
 {
-  "name": "Support Ticket Triage",
+  "name": "02 — Business Date and Time Formatter",
   "nodes": [
     {
-      "id": "trigger-2",
-      "name": "Receive request",
-      "type": "n8n-nodes-base.webhook",
-      "typeVersion": 2.1,
+      "id": "manual",
+      "name": "Run workflow manually",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
       "position": [
-        220,
+        240,
         300
       ],
-      "parameters": {
-        "httpMethod": "POST",
-        "path": "support-ticket",
-        "responseMode": "lastNode",
-        "options": {}
-      }
+      "parameters": {}
     },
     {
-      "id": "process-2",
-      "name": "Validate and prepare data",
+      "id": "process",
+      "name": "Validate and process input",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        470,
+        500,
         300
       ],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const b=$json.body||$json;const t=(String(b.subject||\"\")+\" \"+String(b.message||\"\")).toLowerCase();const priority=/payment|blocked|urgent|cannot login|security/.test(t)?\"high\":/error|bug|broken/.test(t)?\"medium\":\"normal\";return [{json:{ticketId:\"T-\"+Date.now(),name:String(b.name||\"Customer\"),email:String(b.email||\"\"),subject:String(b.subject||\"Support request\"),message:String(b.message||\"\"),priority,queue:priority===\"high\"?\"urgent-support\":\"general-support\",receivedAt:new Date().toISOString()}}];"
-      }
-    },
-    {
-      "id": "sheets-2",
-      "name": "Log to Google Sheets",
-      "type": "n8n-nodes-base.googleSheets",
-      "typeVersion": 4.5,
-      "position": [
-        720,
-        300
-      ],
-      "parameters": {
-        "operation": "append",
-        "documentId": {
-          "__rl": true,
-          "value": "YOUR_GOOGLE_SHEET_ID",
-          "mode": "id"
-        },
-        "sheetName": {
-          "__rl": true,
-          "value": "Sheet1",
-          "mode": "name"
-        },
-        "columns": {
-          "mappingMode": "autoMapInputData",
-          "value": {},
-          "matchingColumns": [],
-          "schema": [],
-          "attemptToConvertTypes": false,
-          "convertFieldsToString": false
-        },
-        "options": {}
-      }
-    },
-    {
-      "id": "slack-2",
-      "name": "Notify Slack",
-      "type": "n8n-nodes-base.slack",
-      "typeVersion": 2.2,
-      "position": [
-        970,
-        300
-      ],
-      "parameters": {
-        "resource": "message",
-        "operation": "post",
-        "channel": "YOUR_SLACK_CHANNEL_ID",
-        "text": "={{ $json.slackText || $json.alert || JSON.stringify($json) }}",
-        "otherOptions": {}
-      }
-    },
-    {
-      "id": "gmail-2",
-      "name": "Send Gmail notification",
-      "type": "n8n-nodes-base.gmail",
-      "typeVersion": 2.1,
-      "position": [
-        1220,
-        300
-      ],
-      "parameters": {
-        "resource": "message",
-        "operation": "send",
-        "sendTo": "={{ $json.email || 'YOUR_TEAM_EMAIL@example.com' }}",
-        "subject": "={{ $json.subject || $json.emailSubject || 'FlowForge-AI notification' }}",
-        "emailType": "text",
-        "message": "={{ $json.body || $json.emailBody || $json.alert || $json.reviewText || $json.slackText || JSON.stringify($json) }}",
-        "options": {}
+        "jsCode": "const now=new Date();return [{json:{isoUtc:now.toISOString(),dateUtc:now.toISOString().slice(0,10),timeUtc:now.toISOString().slice(11,19),unixMilliseconds:now.getTime(),weekdayUtc:[\"Sunday\",\"Monday\",\"Tuesday\",\"Wednesday\",\"Thursday\",\"Friday\",\"Saturday\"][now.getUTCDay()],note:\"UTC values; configure a timezone-aware node if you need local business time.\"}}];"
       }
     }
   ],
   "connections": {
-    "Receive request": {
+    "Run workflow manually": {
       "main": [
         [
           {
-            "node": "Validate and prepare data",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Validate and prepare data": {
-      "main": [
-        [
-          {
-            "node": "Log to Google Sheets",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Log to Google Sheets": {
-      "main": [
-        [
-          {
-            "node": "Notify Slack",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Notify Slack": {
-      "main": [
-        [
-          {
-            "node": "Send Gmail notification",
+            "node": "Validate and process input",
             "type": "main",
             "index": 0
           }
