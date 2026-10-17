@@ -1,114 +1,38 @@
 {
-  "name": "YouTube Publish Checklist",
+  "name": "09 — URL Safety and Format Validator",
   "nodes": [
     {
-      "id": "trigger-9",
-      "name": "Receive request",
-      "type": "n8n-nodes-base.webhook",
-      "typeVersion": 2.1,
+      "id": "manual",
+      "name": "Run workflow manually",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
       "position": [
-        220,
+        240,
         300
       ],
-      "parameters": {
-        "httpMethod": "POST",
-        "path": "youtube-publish-checklist",
-        "responseMode": "lastNode",
-        "options": {}
-      }
+      "parameters": {}
     },
     {
-      "id": "process-9",
-      "name": "Validate and prepare data",
+      "id": "process",
+      "name": "Validate and process input",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        470,
+        500,
         300
       ],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const b=$json.body||$json;const title=String(b.title||\"\").trim();const description=String(b.description||\"\").trim();const videoUrl=String(b.videoUrl||\"\").trim();const tags=Array.isArray(b.tags)?b.tags:[];const checks={title:title.length>0&&title.length<=100,description:description.length>0,videoUrl:/^https?:\\/\\//i.test(videoUrl)};return [{json:{title,description,videoUrl,tags:tags.join(\", \"),checks,ready:Object.values(checks).every(Boolean),status:\"review_required\",createdAt:new Date().toISOString()}}];"
-      }
-    },
-    {
-      "id": "sheets-9",
-      "name": "Log to Google Sheets",
-      "type": "n8n-nodes-base.googleSheets",
-      "typeVersion": 4.5,
-      "position": [
-        720,
-        300
-      ],
-      "parameters": {
-        "operation": "append",
-        "documentId": {
-          "__rl": true,
-          "value": "YOUR_GOOGLE_SHEET_ID",
-          "mode": "id"
-        },
-        "sheetName": {
-          "__rl": true,
-          "value": "Sheet1",
-          "mode": "name"
-        },
-        "columns": {
-          "mappingMode": "autoMapInputData",
-          "value": {},
-          "matchingColumns": [],
-          "schema": [],
-          "attemptToConvertTypes": false,
-          "convertFieldsToString": false
-        },
-        "options": {}
-      }
-    },
-    {
-      "id": "slack-9",
-      "name": "Notify Slack",
-      "type": "n8n-nodes-base.slack",
-      "typeVersion": 2.2,
-      "position": [
-        970,
-        300
-      ],
-      "parameters": {
-        "resource": "message",
-        "operation": "post",
-        "channel": "YOUR_SLACK_CHANNEL_ID",
-        "text": "={{ $json.slackText || $json.alert || JSON.stringify($json) }}",
-        "otherOptions": {}
+        "jsCode": "return $input.all().map(i=>{const raw=String(i.json.url||\"\").trim();let valid=false,protocol=\"\",host=\"\",error=\"\";try{const u=new URL(raw);protocol=u.protocol;host=u.hostname;valid=[\"https:\",\"http:\"].includes(u.protocol)&&!!u.hostname;if(!valid)error=\"Only HTTP/HTTPS URLs with a hostname are accepted.\";}catch(e){error=\"Invalid URL format.\";}return {json:{...i.json,url:raw,isValid:valid,protocol,hostname:host,error,checkedAt:new Date().toISOString()}}});"
       }
     }
   ],
   "connections": {
-    "Receive request": {
+    "Run workflow manually": {
       "main": [
         [
           {
-            "node": "Validate and prepare data",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Validate and prepare data": {
-      "main": [
-        [
-          {
-            "node": "Log to Google Sheets",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Log to Google Sheets": {
-      "main": [
-        [
-          {
-            "node": "Notify Slack",
+            "node": "Validate and process input",
             "type": "main",
             "index": 0
           }
