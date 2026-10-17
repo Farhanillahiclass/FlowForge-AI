@@ -315,6 +315,19 @@
       "parameters": {
         "jsCode": "return [{json:{ok:false,status:'rejected',httpStatus:422,error:'invalid_lead',requestId:$json.requestId||'',message:'A name, valid email, and stable requestId are required'}}];"
       }
+    },
+    {
+      "id": "prepare-processing",
+      "name": "Prepare Processing Record",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1580,
+        470
+      ],
+      "parameters": {
+        "jsCode": "const e=$('Normalize and Validate Lead').first().json; return [{json:{requestId:e.requestId,eventType:e.eventType,source:e.source,occurredAt:e.occurredAt,name:e.name,email:e.email,company:e.company,message:e.message,receivedAt:e.receivedAt,status:'processing',valid:e.valid}}];"
+      }
     }
   ],
   "connections": {
@@ -391,7 +404,7 @@
         ],
         [
           {
-            "node": "Save Processing Record",
+            "node": "Prepare Processing Record",
             "type": "main",
             "index": 0
           }
@@ -436,6 +449,17 @@
         [
           {
             "node": "Return Accepted Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Processing Record": {
+      "main": [
+        [
+          {
+            "node": "Save Processing Record",
             "type": "main",
             "index": 0
           }
