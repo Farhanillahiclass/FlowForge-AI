@@ -1,47 +1,32 @@
-# FlowForge-AI — A–Z Automation System
+# A–Z System Layer
 
-This directory is the proposed **system layer**. It complements the 20 business workflow templates under `workflows/`; it does not magically make each business template production-ready.
+These inactive workflow exports demonstrate a modular starter architecture. They are not yet a fully deployed or live-tested automation system.
 
-## Architecture
+## Flow
 
 ```text
-External sources
-  ├─ Webhook / Schedule / App trigger
-  ▼
-00 — Main Ingress (request contract, input checks, request ID)
-  ▼
-01 — Request Processor (normalize request, route by task)
-  ▼
-Reusable business workflow(s)
-  ├─ lead intake / scoring
-  ├─ customer support / inbox triage
-  ├─ content pipeline
-  └─ reporting / health monitoring
-  ▼
-Destination actions (Sheets, Gmail, Calendar, APIs, messaging)
-  ▼
-Structured result + audit logging
-             
-Any runtime failure ──► 02 — Central Error Handler ──► durable error log + alert
+00 Main Ingress (Header Auth + envelope validation)
+    └── Execute Sub-workflow
+        └── 01 Request Processor (eventType router)
+            ├── lead.created → 10 Lead Capture
+            ├── lead.score_requested → 11 Lead Scoring
+            └── support.ticket.created → 12 Support Ticket
+
+Unhandled runtime error → 90 Central Error Handler (sanitized log + operator alert)
 ```
 
-## Canonical ownership
+## Import and bind workflow IDs
 
-- `workflows/<slug>/workflow.json` is the canonical business workflow export.
-- `workflows/<slug>/README.md` documents that workflow.
-- `workflows/<slug>/Code.gs` is an optional, workflow-specific Google Apps Script adapter.
-- `system/*.json` contains reusable system-level examples and an architecture contract.
-- `docs/ARCHITECTURE.md` explains the design and runtime responsibilities.
+1. Import `10-lead-capture-subflow.json`, `11-lead-scoring-subflow.json`, and `12-support-ticket-subflow.json`.
+2. Import `01-request-processor.json`. In each Execute Sub-workflow node, select the matching imported child.
+3. Import `00-main-ingress.json` and select the request-processor workflow.
+4. Configure Header Auth on the Webhook node. Select Google Sheets and Gmail credentials in the child workflows.
+5. Import `90-central-error-handler.json`, configure its ops-log spreadsheet and alert recipient, then assign it under Workflow Settings → Error Workflow.
+6. Keep all workflows inactive while testing. Run success, invalid-input, duplicate-request, unsupported-event, and provider-failure cases listed in [Testing & Validation](../TESTING-AND-VALIDATION.md).
 
-The old root-level workflow JSON copies and top-level `apps-script/` and `workflow-guides/` mirrors are retained for backward compatibility in this change set. They should be removed in a dedicated migration once all external links have moved to the canonical workflow folders.
+The Execute Sub-workflow node calls another workflow by its database ID, and the paired Execute Sub-workflow Trigger starts the child. Official references: [Execute Sub-workflow](https://docs.n8n.io/integrations/builtin/core-nodes/n8n-nodes-base.executeworkflow/) and [Error Trigger](https://docs.n8n.io/integrations/builtin/core-nodes/n8n-nodes-base.errortrigger/).
 
-## Deployment boundaries
-
-All system JSON exports must stay inactive until imported, credentials configured, endpoints reviewed, and tests run on a disposable/test n8n instance. The included main-ingress/processor/error-handler exports are templates for a modular arrangement, not a proof of deployed connectivity. n8n Execute Workflow nodes must be bound to the actual imported child-workflow IDs in the target instance.
-
-## Event contract
-
-Recommended inbound envelope:
+## Input contract
 
 ```json
 {
@@ -56,4 +41,8 @@ Recommended inbound envelope:
 }
 ```
 
-Use stable event IDs and durable uniqueness at the destination for cross-execution idempotency. A Set inside a Code node only detects duplicates within one execution.
+Use one stable request ID per business event. Lead capture and support examples check existing Sheet rows before they create a side effect. This is a small-volume starter only: concurrent requests can race, and a failure after an external action may require reconciliation. Use an indexed database with a unique constraint for critical or high-volume processing.
+
+## Completeness boundary
+
+The dispatcher currently routes the three event types above. The other 17 business workflow templates are not connected to the central dispatcher yet. Child workflow selection, credentials, provider-side effects, n8n import, and live runtime tests remain required before production use.
