@@ -1,26 +1,35 @@
-# FlowForge-AI workflows
+# Workflow Catalog
 
-Each workflow is now self-contained in its own folder with its own README, n8n JSON, and workflow-specific Apps Script file.
+**Single source of truth:** each business automation is stored in one directory. Don't add another JSON or Apps Script mirror in a separate folder.
 
-- [01-lead-capture-crm](./01-lead-capture-crm/README.md) · [workflow.json](./01-lead-capture-crm/workflow.json) · [Code.gs](./01-lead-capture-crm/Code.gs)
-- [02-lead-scoring-routing](./02-lead-scoring-routing/README.md) · [workflow.json](./02-lead-scoring-routing/workflow.json) · [Code.gs](./02-lead-scoring-routing/Code.gs)
-- [03-email-follow-up-sequence](./03-email-follow-up-sequence/README.md) · [workflow.json](./03-email-follow-up-sequence/workflow.json) · [Code.gs](./03-email-follow-up-sequence/Code.gs)
-- [04-inbox-triage-assistant](./04-inbox-triage-assistant/README.md) · [workflow.json](./04-inbox-triage-assistant/workflow.json) · [Code.gs](./04-inbox-triage-assistant/Code.gs)
-- [05-customer-support-desk](./05-customer-support-desk/README.md) · [workflow.json](./05-customer-support-desk/workflow.json) · [Code.gs](./05-customer-support-desk/Code.gs)
-- [06-faq-human-handoff](./06-faq-human-handoff/README.md) · [workflow.json](./06-faq-human-handoff/workflow.json) · [Code.gs](./06-faq-human-handoff/Code.gs)
-- [07-meeting-booking-system](./07-meeting-booking-system/README.md) · [workflow.json](./07-meeting-booking-system/workflow.json) · [Code.gs](./07-meeting-booking-system/Code.gs)
-- [08-meeting-reminders](./08-meeting-reminders/README.md) · [workflow.json](./08-meeting-reminders/workflow.json) · [Code.gs](./08-meeting-reminders/Code.gs)
-- [09-client-onboarding](./09-client-onboarding/README.md) · [workflow.json](./09-client-onboarding/workflow.json) · [Code.gs](./09-client-onboarding/Code.gs)
-- [10-invoice-payment-reminders](./10-invoice-payment-reminders/README.md) · [workflow.json](./10-invoice-payment-reminders/workflow.json) · [Code.gs](./10-invoice-payment-reminders/Code.gs)
-- [11-content-creation-approval](./11-content-creation-approval/README.md) · [workflow.json](./11-content-creation-approval/workflow.json) · [Code.gs](./11-content-creation-approval/Code.gs)
-- [12-instagram-publishing-pipeline](./12-instagram-publishing-pipeline/README.md) · [workflow.json](./12-instagram-publishing-pipeline/workflow.json) · [Code.gs](./12-instagram-publishing-pipeline/Code.gs)
-- [13-youtube-publishing-assistant](./13-youtube-publishing-assistant/README.md) · [workflow.json](./13-youtube-publishing-assistant/workflow.json) · [Code.gs](./13-youtube-publishing-assistant/Code.gs)
-- [14-content-repurposing](./14-content-repurposing/README.md) · [workflow.json](./14-content-repurposing/workflow.json) · [Code.gs](./14-content-repurposing/Code.gs)
-- [15-newsletter-campaign-builder](./15-newsletter-campaign-builder/README.md) · [workflow.json](./15-newsletter-campaign-builder/workflow.json) · [Code.gs](./15-newsletter-campaign-builder/Code.gs)
-- [16-weekly-business-report](./16-weekly-business-report/README.md) · [workflow.json](./16-weekly-business-report/workflow.json) · [Code.gs](./16-weekly-business-report/Code.gs)
-- [17-feedback-routing](./17-feedback-routing/README.md) · [workflow.json](./17-feedback-routing/workflow.json) · [Code.gs](./17-feedback-routing/Code.gs)
-- [18-workflow-error-monitor](./18-workflow-error-monitor/README.md) · [workflow.json](./18-workflow-error-monitor/workflow.json) · [Code.gs](./18-workflow-error-monitor/Code.gs)
-- [19-api-health-monitor](./19-api-health-monitor/README.md) · [workflow.json](./19-api-health-monitor/workflow.json) · [Code.gs](./19-api-health-monitor/Code.gs)
-- [20-telegram-business-assistant](./20-telegram-business-assistant/README.md) · [workflow.json](./20-telegram-business-assistant/workflow.json) · [Code.gs](./20-telegram-business-assistant/Code.gs)
+Every folder contains:
+- `README.md` — business goal, credentials, setup, test plan, limitations.
+- `workflow.json` — canonical n8n export.
+- `Code.gs` — optional Apps Script adapter for Google Sheets, only where useful.
 
-The Apps Script adapter is optional if the workflow does not use Google Sheets. See [testing report](../TESTING-AND-VALIDATION.md).
+## Workflows
+
+- **01 Lead Capture & CRM** — Validate a lead, save it to the sheet, notify sales, and return a structured result. [Open folder](./01-lead-capture-crm/)
+- **02 Lead Scoring & Routing** — Calculate a configurable lead score and route hot/warm/cold leads. [Open folder](./02-lead-scoring-routing/)
+- **03 Email Follow-up Sequence** — Prepare consent-aware follow-up work; delivery needs a consented source and mail service. [Open folder](./03-email-follow-up-sequence/)
+- **04 Inbox Triage Assistant** — Classify incoming messages and route urgent items. [Open folder](./04-inbox-triage-assistant/)
+- **05 Customer Support Desk** — Validate a support request, assign priority, store it, and notify support. [Open folder](./05-customer-support-desk/)
+- **06 FAQ & Human Handoff** — Match an approved FAQ or hand uncertain/sensitive cases to a person. [Open folder](./06-faq-human-handoff/)
+- **07 Meeting Booking System** — Validate a booking and coordinate calendar availability, event creation and confirmation. [Open folder](./07-meeting-booking-system/)
+- **08 Meeting Reminders** — Find meetings due for reminder, notify, and persist a reminder marker. [Open folder](./08-meeting-reminders/)
+- **09 Client Onboarding** — Validate a new client and coordinate onboarding tasks. [Open folder](./09-client-onboarding/)
+- **10 Invoice & Payment Reminders** — Find overdue invoices, apply reminder rules, send reminders, and log outcomes. [Open folder](./10-invoice-payment-reminders/)
+- **11 Content Creation & Approval** — Draft content from a brief and keep approval before publication. [Open folder](./11-content-creation-approval/)
+- **12 Instagram Publishing Pipeline** — Validate content, require approval, publish through configured Meta integration, and log. [Open folder](./12-instagram-publishing-pipeline/)
+- **13 YouTube Publishing Assistant** — Validate video metadata and source file, coordinate upload and processing. [Open folder](./13-youtube-publishing-assistant/)
+- **14 Content Repurposing** — Generate platform-specific drafts and send for review. [Open folder](./14-content-repurposing/)
+- **15 Newsletter Campaign Builder** — Build a newsletter for a consented audience with suppression and logging. [Open folder](./15-newsletter-campaign-builder/)
+- **16 Weekly Business Reporting** — Aggregate business metrics into a weekly report and archive it. [Open folder](./16-weekly-business-report/)
+- **17 Feedback & Escalation** — Store feedback and privately route low scores for follow-up. [Open folder](./17-feedback-routing/)
+- **18 Workflow Error Monitor** — Normalize execution failures, write an error log and alert an operator. [Open folder](./18-workflow-error-monitor/)
+- **19 API Health Monitor** — Check configured endpoints, detect failure/recovery, and alert. [Open folder](./19-api-health-monitor/)
+- **20 Telegram Business Assistant** — Parse Telegram commands and route approved business actions. [Open folder](./20-telegram-business-assistant/)
+
+Shared references: [Credentials guide](./CREDENTIALS-GUIDE.md), [A–Z system layer](../system/README.md), and [Testing & validation](../TESTING-AND-VALIDATION.md).
+
+> These exports have different levels of completion. Valid JSON does not prove successful import, credential configuration, or real provider actions.

@@ -1,40 +1,30 @@
 # FlowForge-AI A–Z Automation Architecture
 
-## Design goal
+## Goal
 
-Build reusable, observable n8n automations from a clear request entry point through validation, business logic, integrations, logging, and failure recovery. Separate transport and orchestration logic from business workflows so that each part can be reviewed and tested independently.
+Build reusable n8n workflows from protected entry through validation, routing, provider actions, state tracking, and failure notification. Keep request transport/orchestration separate from domain business logic.
 
 ## Layers
 
-### 1. Entry and protection
-Use native Webhook, Schedule, or service-specific trigger nodes. Authenticate inbound webhook calls using n8n's supported authentication settings or an approved gateway. Validate content type, payload size, required fields, rate limits, and schema before processing. A workflow cannot execute before its trigger; pre-webhook network filtering belongs at the API gateway or perimeter.
+1. **Entry and protection:** use Webhook, Schedule, or native service triggers. Webhook intake should use Header Auth or an approved API gateway. Payload validation runs immediately after the trigger; a sub-workflow cannot execute before a webhook event arrives.
+2. **Request envelope:** normalize `requestId`, `eventType`, `source`, `occurredAt`, and object-valued `data`.
+3. **Orchestrator:** validate the envelope and route by event type. Execute Sub-workflow nodes invoke child workflow IDs selected in the target n8n instance after import.
+4. **Business sub-workflows:** each child owns domain validation, business rules, provider actions, and structured output.
+5. **Persistence/idempotency:** use a durable event key and uniqueness enforcement. The provided read-existing-rows Sheet check is a small-volume starter; concurrent requests can race.
+6. **Reliability:** use bounded retry/backoff for transient errors, an assigned Error Workflow, sanitized logs, alerts, and explicit reconciliation for uncertain provider outcomes.
 
-### 2. Orchestration
-Normalize an event envelope with `requestId`, `eventType`, `source`, `occurredAt`, and `data`. Use IF/Switch nodes for explicit routes. Use Execute Workflow only after importing the child and choosing the correct child workflow ID. Define whether child calls wait for completion or run asynchronously, and define a response contract.
+## Current dispatcher routes
 
-### 3. Business sub-workflows
-Each business automation owns its transformation and domain rules. Keep input/output contracts documented. A child should return structured results such as `{ ok, requestId, status, data, error }`, without leaking secrets or unneeded personal data.
+The system layer demonstrates three routed business events:
 
-### 4. Integrations and effects
-Configure provider credentials in n8n Credentials, with least privilege. Keep placeholder IDs and recipients clearly identified. Use test accounts first. Consider provider rate limits, pagination, timeouts, transient errors, and external API idempotency. Do not put tokens into Code nodes or committed JSON.
+- `lead.created` → Lead Capture sub-workflow.
+- `lead.score_requested` → Lead Scoring sub-workflow.
+- `support.ticket.created` → Support Ticket sub-workflow.
 
-### 5. Persistence and idempotency
-Use a durable data store (database with unique key, n8n Data Table where available, or destination's documented idempotency mechanism) to track `requestId` and completed side effects. A JavaScript Set only lasts for one execution and is not sufficient for retries after a workflow restarts.
+The other 17 business workflow templates are documented under `workflows/` but are not yet connected to the central dispatcher. They must be adapted to the Execute Sub-workflow input contract and individually verified before they can be advertised as integrated.
 
-### 6. Reliability and observability
-Use n8n Error Workflow(s), bounded retry/backoff for transient failures, explicit handling for permanent failures, structured execution logs, and alert destinations. Sanitize errors so tokens, message bodies, and sensitive customer data do not appear in alerts. Error handler notification itself needs failure protection and monitoring.
+## Deployment steps
 
-## Minimum acceptance criteria for a workflow
+Import the child workflows first, then Request Processor, then Main Ingress. Select each child's actual workflow ID in its parent's Execute Sub-workflow node. Configure credentials through n8n Credentials. Assign the central error handler under Workflow Settings → Error Workflow. Keep exports inactive until test paths and destination-side effects are verified.
 
-- Valid input accepted; malformed input rejected with a stable schema.
-- Duplicate event tested within a batch and across separate executions.
-- Destination writes checked in a test environment.
-- Timeout after a write investigated before blindly replaying the operation.
-- Retry only transient failures; cap retry attempts and use backoff.
-- Failed writes have a defined path to error logging/dead-letter handling.
-- Credentials are selected in the target n8n project, not embedded in the JSON.
-- Workflow stays inactive until test evidence is reviewed.
-
-## Reality check
-
-Repository/static tests can check JSON parsing and graph references. Only a compatible n8n runtime can confirm import and node behavior. Provider effects require credentials and synthetic test accounts. This repository has no access to those accounts during static review; consequently, don't label the system production-ready before importing and testing every path.
+Official references: [Execute Sub-workflow](https://docs.n8n.io/integrations/builtin/core-nodes/n8n-nodes-base.executeworkflow/), [Execute Sub-workflow Trigger](https://docs.n8n.io/integrations/builtin/core-nodes/n8n-nodes-base.executeworkflowtrigger/), and [Error Trigger](https://docs.n8n.io/integrations/builtin/core-nodes/n8n-nodes-base.errortrigger/).
