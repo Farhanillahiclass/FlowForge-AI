@@ -1,9 +1,9 @@
 {
-  "name": "Low Stock Inventory",
+  "name": "10 — Inventory Reorder Monitor",
   "nodes": [
     {
-      "id": "trigger-10",
-      "name": "When clicking 'Execute workflow'",
+      "id": "manual",
+      "name": "Run workflow manually",
       "type": "n8n-nodes-base.manualTrigger",
       "typeVersion": 1,
       "position": [
@@ -13,8 +13,8 @@
       "parameters": {}
     },
     {
-      "id": "action-10",
-      "name": "Process Example Data",
+      "id": "process",
+      "name": "Validate and process input",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
@@ -23,16 +23,16 @@
       ],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const threshold=5;const a=[{sku:\"A-100\",name:\"Notebook\",stock:12},{sku:\"B-200\",name:\"USB Cable\",stock:3},{sku:\"C-300\",name:\"Mouse\",stock:0},{sku:\"D-400\",name:\"Pen\",stock:5}];return a.map(x=>({json:{...x,needsRestock:x.stock<=threshold,status:x.stock===0?\"out-of-stock\":x.stock<=threshold?\"low-stock\":\"ok\"}}));"
+        "jsCode": "return $input.all().map(i=>{const r=i.json;const stock=Number(r.stock);const threshold=Number(r.reorderPoint??5);const valid=Number.isFinite(stock)&&stock>=0&&Number.isFinite(threshold)&&threshold>=0;const status=!valid?\"invalid-data\":stock===0?\"out-of-stock\":stock<=threshold?\"reorder\":\"in-stock\";return {json:{...r,stock,threshold,valid,status,needsRestock:valid&&stock<=threshold,recommendedOrderQty:valid&&stock<=threshold?Math.max(0,Number(r.targetStock??threshold*3)-stock):0,checkedAt:new Date().toISOString()}}});"
       }
     }
   ],
   "connections": {
-    "When clicking 'Execute workflow'": {
+    "Run workflow manually": {
       "main": [
         [
           {
-            "node": "Process Example Data",
+            "node": "Validate and process input",
             "type": "main",
             "index": 0
           }
@@ -42,11 +42,12 @@
   },
   "active": false,
   "settings": {
-    "executionOrder": "v1"
+    "executionOrder": "v1",
+    "saveManualExecutions": true
   },
-  "versionId": "flowforge-template-10",
+  "versionId": "flowforge-pro-10",
   "meta": {
-    "templateCredsSetupCompleted": true
+    "templateCredsSetupCompleted": false
   },
   "tags": []
 }
