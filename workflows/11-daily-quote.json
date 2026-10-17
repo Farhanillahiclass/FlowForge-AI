@@ -1,9 +1,9 @@
 {
-  "name": "Daily Quote",
+  "name": "11 — Daily Team Message",
   "nodes": [
     {
-      "id": "trigger-11",
-      "name": "When clicking 'Execute workflow'",
+      "id": "manual",
+      "name": "Run workflow manually",
       "type": "n8n-nodes-base.manualTrigger",
       "typeVersion": 1,
       "position": [
@@ -13,8 +13,8 @@
       "parameters": {}
     },
     {
-      "id": "action-11",
-      "name": "Process Example Data",
+      "id": "process",
+      "name": "Validate and process input",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
@@ -23,16 +23,16 @@
       ],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const q=[{quote:\"Great things are done by a series of small things brought together.\",author:\"Vincent van Gogh\"},{quote:\"It always seems impossible until it is done.\",author:\"Nelson Mandela\"},{quote:\"Well done is better than well said.\",author:\"Benjamin Franklin\"}];const day=Math.floor(Date.now()/86400000);return [{json:{date:new Date().toISOString().slice(0,10),...q[day%q.length]}}];"
+        "jsCode": "const a=[{message:\"Make the next step clear, small, and testable.\",author:\"FlowForge-AI team\"},{message:\"A reliable workflow is observable, testable, and easy to improve.\",author:\"FlowForge-AI team\"},{message:\"Automate repeatable work; keep human judgment for important decisions.\",author:\"FlowForge-AI team\"}];const day=Math.floor(Date.now()/86400000);return [{json:{date:new Date().toISOString().slice(0,10),...a[day%a.length],usage:\"Connect a Schedule Trigger and approved team channel for delivery.\"}}];"
       }
     }
   ],
   "connections": {
-    "When clicking 'Execute workflow'": {
+    "Run workflow manually": {
       "main": [
         [
           {
-            "node": "Process Example Data",
+            "node": "Validate and process input",
             "type": "main",
             "index": 0
           }
@@ -42,11 +42,12 @@
   },
   "active": false,
   "settings": {
-    "executionOrder": "v1"
+    "executionOrder": "v1",
+    "saveManualExecutions": true
   },
-  "versionId": "flowforge-template-11",
+  "versionId": "flowforge-pro-11",
   "meta": {
-    "templateCredsSetupCompleted": true
+    "templateCredsSetupCompleted": false
   },
   "tags": []
 }
