@@ -1,0 +1,422 @@
+{
+  "name": "01 - Request Processor",
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true
+  },
+  "versionId": "ffai-request-processor-v1",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": [],
+  "nodes": [
+    {
+      "id": "trigger",
+      "name": "Called by Main Ingress",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        200,
+        300
+      ],
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "requestId",
+              "type": "string"
+            },
+            {
+              "name": "eventType",
+              "type": "string"
+            },
+            {
+              "name": "source",
+              "type": "string"
+            },
+            {
+              "name": "occurredAt",
+              "type": "string"
+            },
+            {
+              "name": "data",
+              "type": "object"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "routecode",
+      "name": "Validate and Route Event",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        450,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const e=$json; const requestId=String(e.requestId||'').trim(); const eventType=String(e.eventType||'').trim(); const data=e.data&&typeof e.data==='object'&&!Array.isArray(e.data)?e.data:null; const routes={'lead.created':'lead','lead.score_requested':'score','support.ticket.created':'support'}; const valid=!!requestId&&!!eventType&&data!==null; return [{json:{...e,requestId,eventType,data,valid,route:routes[eventType]||'unsupported',httpStatus:valid?200:422}}];"
+      }
+    },
+    {
+      "id": "validif",
+      "name": "Input Contract Valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        700,
+        300
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "condition",
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "leadif",
+      "name": "Route to Lead Capture?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        930,
+        180
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "lead",
+              "leftValue": "={{ $json.route }}",
+              "rightValue": "lead",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "calllead",
+      "name": "Execute Lead Capture",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        1170,
+        100
+      ],
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "value": "REPLACE_WITH_LEAD_CAPTURE_WORKFLOW_ID",
+          "mode": "list",
+          "cachedResultName": "10 - Lead Capture Sub-workflow"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "requestId": "={{ $json.requestId }}",
+            "eventType": "={{ $json.eventType }}",
+            "source": "={{ $json.source }}",
+            "occurredAt": "={{ $json.occurredAt }}",
+            "data": "={{ $json.data }}"
+          },
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "scoreif",
+      "name": "Route to Lead Scoring?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1170,
+        300
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "score",
+              "leftValue": "={{ $json.route }}",
+              "rightValue": "score",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "callscore",
+      "name": "Execute Lead Scoring",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        1410,
+        260
+      ],
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "value": "REPLACE_WITH_LEAD_SCORING_WORKFLOW_ID",
+          "mode": "list",
+          "cachedResultName": "11 - Lead Scoring Sub-workflow"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "requestId": "={{ $json.requestId }}",
+            "eventType": "={{ $json.eventType }}",
+            "source": "={{ $json.source }}",
+            "occurredAt": "={{ $json.occurredAt }}",
+            "data": "={{ $json.data }}"
+          },
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "supportif",
+      "name": "Route to Support Ticket?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1410,
+        450
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "support",
+              "leftValue": "={{ $json.route }}",
+              "rightValue": "support",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "callsupport",
+      "name": "Execute Support Ticket",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        1650,
+        400
+      ],
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "value": "REPLACE_WITH_SUPPORT_WORKFLOW_ID",
+          "mode": "list",
+          "cachedResultName": "12 - Support Ticket Sub-workflow"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "requestId": "={{ $json.requestId }}",
+            "eventType": "={{ $json.eventType }}",
+            "source": "={{ $json.source }}",
+            "occurredAt": "={{ $json.occurredAt }}",
+            "data": "={{ $json.data }}"
+          },
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "invalidcontract",
+      "name": "Return Invalid Contract",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        940,
+        520
+      ],
+      "parameters": {
+        "jsCode": "return [{json:{ok:false,status:'rejected',httpStatus:422,error:'invalid_event_envelope',requestId:$json.requestId||'',message:'requestId, eventType and object data are required'}}];"
+      }
+    },
+    {
+      "id": "unsupported",
+      "name": "Return Unsupported Event",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1650,
+        590
+      ],
+      "parameters": {
+        "jsCode": "return [{json:{ok:false,status:'rejected',httpStatus:422,error:'unsupported_event_type',requestId:$json.requestId,supportedEventTypes:['lead.created','lead.score_requested','support.ticket.created']}}];"
+      }
+    }
+  ],
+  "connections": {
+    "Called by Main Ingress": {
+      "main": [
+        [
+          {
+            "node": "Validate and Route Event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate and Route Event": {
+      "main": [
+        [
+          {
+            "node": "Input Contract Valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Input Contract Valid?": {
+      "main": [
+        [
+          {
+            "node": "Route to Lead Capture?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Return Invalid Contract",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route to Lead Capture?": {
+      "main": [
+        [
+          {
+            "node": "Execute Lead Capture",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Route to Lead Scoring?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route to Lead Scoring?": {
+      "main": [
+        [
+          {
+            "node": "Execute Lead Scoring",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Route to Support Ticket?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route to Support Ticket?": {
+      "main": [
+        [
+          {
+            "node": "Execute Support Ticket",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Return Unsupported Event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}
