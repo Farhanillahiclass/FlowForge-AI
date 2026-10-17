@@ -1,0 +1,52 @@
+{
+  "name": "Sample Lead Scoring",
+  "nodes": [
+    {
+      "id": "trigger-4",
+      "name": "When clicking 'Execute workflow'",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        240,
+        300
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "action-4",
+      "name": "Process Example Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        500,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const leads=[{name:\"Amina\",email:\"amina@example.com\",companySize:30,requestedDemo:true},{name:\"Bilal\",email:\"\",companySize:2,requestedDemo:false},{name:\"Sara\",email:\"sara@example.com\",companySize:120,requestedDemo:true}];return leads.map(x=>{let score=0;if(x.email.includes(\"@\"))score+=25;if(x.companySize>=20)score+=25;if(x.requestedDemo)score+=50;return {json:{...x,score,priority:score>=75?\"high\":score>=40?\"medium\":\"low\"}}});"
+      }
+    }
+  ],
+  "connections": {
+    "When clicking 'Execute workflow'": {
+      "main": [
+        [
+          {
+            "node": "Process Example Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "flowforge-template-4",
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "tags": []
+}
