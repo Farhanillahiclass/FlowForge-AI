@@ -1,0 +1,52 @@
+{
+  "name": "Data Quality Checker",
+  "nodes": [
+    {
+      "id": "trigger-13",
+      "name": "When clicking 'Execute workflow'",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        240,
+        300
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "action-13",
+      "name": "Process Example Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        500,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const a=[{id:1,name:\"Amina\",email:\"amina@example.com\",age:22},{id:2,name:\"\",email:\"wrong-email\",age:-4},{id:3,name:\"Bilal\",email:\"bilal@example.com\",age:17}];return a.map(x=>{const issues=[];if(!x.name.trim())issues.push(\"missing name\");if(!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(x.email))issues.push(\"invalid email\");if(!Number.isFinite(x.age)||x.age<0)issues.push(\"invalid age\");return {json:{...x,isValid:issues.length===0,issues}}});"
+      }
+    }
+  ],
+  "connections": {
+    "When clicking 'Execute workflow'": {
+      "main": [
+        [
+          {
+            "node": "Process Example Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "flowforge-template-13",
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "tags": []
+}
