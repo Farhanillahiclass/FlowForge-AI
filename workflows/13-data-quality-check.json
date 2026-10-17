@@ -1,9 +1,9 @@
 {
-  "name": "Data Quality Checker",
+  "name": "13 — Data Quality Gate",
   "nodes": [
     {
-      "id": "trigger-13",
-      "name": "When clicking 'Execute workflow'",
+      "id": "manual",
+      "name": "Run workflow manually",
       "type": "n8n-nodes-base.manualTrigger",
       "typeVersion": 1,
       "position": [
@@ -13,8 +13,8 @@
       "parameters": {}
     },
     {
-      "id": "action-13",
-      "name": "Process Example Data",
+      "id": "process",
+      "name": "Validate and process input",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
@@ -23,16 +23,16 @@
       ],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const a=[{id:1,name:\"Amina\",email:\"amina@example.com\",age:22},{id:2,name:\"\",email:\"wrong-email\",age:-4},{id:3,name:\"Bilal\",email:\"bilal@example.com\",age:17}];return a.map(x=>{const issues=[];if(!x.name.trim())issues.push(\"missing name\");if(!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(x.email))issues.push(\"invalid email\");if(!Number.isFinite(x.age)||x.age<0)issues.push(\"invalid age\");return {json:{...x,isValid:issues.length===0,issues}}});"
+        "jsCode": "return $input.all().map(i=>{const r=i.json;const issues=[];if(!String(r.name||\"\").trim())issues.push(\"missing_name\");if(!String(r.email||\"\").trim())issues.push(\"missing_email\");else if(!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(String(r.email).trim()))issues.push(\"invalid_email\");if(r.amount!==undefined&&(!Number.isFinite(Number(r.amount))||Number(r.amount)<0))issues.push(\"invalid_amount\");return {json:{...r,isValid:issues.length===0,qualityStatus:issues.length?\"needs_review\":\"passed\",issues,checkedAt:new Date().toISOString()}}});"
       }
     }
   ],
   "connections": {
-    "When clicking 'Execute workflow'": {
+    "Run workflow manually": {
       "main": [
         [
           {
-            "node": "Process Example Data",
+            "node": "Validate and process input",
             "type": "main",
             "index": 0
           }
@@ -42,11 +42,12 @@
   },
   "active": false,
   "settings": {
-    "executionOrder": "v1"
+    "executionOrder": "v1",
+    "saveManualExecutions": true
   },
-  "versionId": "flowforge-template-13",
+  "versionId": "flowforge-pro-13",
   "meta": {
-    "templateCredsSetupCompleted": true
+    "templateCredsSetupCompleted": false
   },
   "tags": []
 }
