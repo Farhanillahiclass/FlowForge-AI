@@ -1,0 +1,149 @@
+{
+  "name": "15 - Newsletter Campaign Builder",
+  "nodes": [
+    {
+      "id": "trigger",
+      "name": "Submit Newsletter Draft",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        200,
+        300
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "newsletter-campaign",
+        "responseMode": "lastNode",
+        "options": {}
+      }
+    },
+    {
+      "id": "validate",
+      "name": "Validate Campaign and Require Approval",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        450,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const b=$json.body||$json;const subject=String(b.subject||'').trim();const body=String(b.body||'').trim();return [{json:{subject,body,audienceId:String(b.audienceId||''),valid:!!subject&&body.length>20,approvalRequired:true,status:'draft',consentRequired:true,unsubscribeSuppressionRequired:true,createdAt:new Date().toISOString()}}];"
+      }
+    },
+    {
+      "id": "if",
+      "name": "Campaign Valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        700,
+        300
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "valid",
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "send",
+      "name": "Connect Consented Subscriber Source → Suppression Check → Gmail/Email Service",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        960,
+        200
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "bad",
+      "name": "Return Invalid Campaign",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        960,
+        420
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\"ok\":false,\"message\":\"Subject and campaign body are required\"}",
+        "options": {
+          "responseCode": 400
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Submit Newsletter Draft": {
+      "main": [
+        [
+          {
+            "node": "Validate Campaign and Require Approval",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Campaign and Require Approval": {
+      "main": [
+        [
+          {
+            "node": "Campaign Valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Campaign Valid?": {
+      "main": [
+        [
+          {
+            "node": "Connect Consented Subscriber Source → Suppression Check → Gmail/Email Service",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Return Invalid Campaign",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true
+  },
+  "versionId": "ffai-15-newsletter-campaign-builder",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}

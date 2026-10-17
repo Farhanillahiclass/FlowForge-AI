@@ -1,0 +1,149 @@
+{
+  "name": "09 - Client Onboarding Orchestrator",
+  "nodes": [
+    {
+      "id": "trigger",
+      "name": "Receive New Client",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        200,
+        300
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "client-onboarding",
+        "responseMode": "lastNode",
+        "options": {}
+      }
+    },
+    {
+      "id": "validate",
+      "name": "Validate Client and Create Checklist",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        450,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const b=$json.body||$json;const name=String(b.clientName||b.name||'').trim();const email=String(b.email||'').trim().toLowerCase();const valid=!!name&&/^[^\\\\s@]+@[^\\\\s@]+\\\\.[^\\\\s@]+$/.test(email);return [{json:{clientName:name,email,service:b.service||'not specified',owner:b.owner||'unassigned',valid,status:'onboarding-pending',createdAt:new Date().toISOString(),checklist:['send-welcome-email','create-client-record','schedule-kickoff','collect-requirements']}}];"
+      }
+    },
+    {
+      "id": "if",
+      "name": "Client Details Valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        700,
+        300
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "valid",
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "actions",
+      "name": "Configure Sheets CRM + Gmail Welcome + Calendar Kickoff",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        960,
+        200
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "bad",
+      "name": "Return Validation Error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        960,
+        420
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\"ok\":false,\"message\":\"Client name and valid email required\"}",
+        "options": {
+          "responseCode": 400
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Receive New Client": {
+      "main": [
+        [
+          {
+            "node": "Validate Client and Create Checklist",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Client and Create Checklist": {
+      "main": [
+        [
+          {
+            "node": "Client Details Valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Client Details Valid?": {
+      "main": [
+        [
+          {
+            "node": "Configure Sheets CRM + Gmail Welcome + Calendar Kickoff",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Return Validation Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true
+  },
+  "versionId": "ffai-09-client-onboarding-orchestrator",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}

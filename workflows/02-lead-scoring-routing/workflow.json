@@ -1,0 +1,85 @@
+{
+  "name": "02 - Lead Scoring and Routing",
+  "nodes": [
+    {
+      "id": "wh",
+      "name": "Receive Lead",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        200,
+        300
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "lead-score-routing",
+        "responseMode": "lastNode",
+        "options": {}
+      }
+    },
+    {
+      "id": "code",
+      "name": "Score Lead",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        450,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const b=$json.body||$json; const budget=Number(b.budget||0); const score=(b.company?15:0)+(budget>=5000?35:budget>=1000?20:0)+(b.timeline==='urgent'?30:10); return [{json:{name:b.name||'',email:String(b.email||'').toLowerCase(),company:b.company||'',score,tier:score>=65?'hot':score>=40?'warm':'cold',createdAt:new Date().toISOString()}}];"
+      }
+    },
+    {
+      "id": "reply",
+      "name": "Return Lead Score",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        700,
+        300
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "responseCode": 200
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Receive Lead": {
+      "main": [
+        [
+          {
+            "node": "Score Lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Score Lead": {
+      "main": [
+        [
+          {
+            "node": "Return Lead Score",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "ffai-02",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}
