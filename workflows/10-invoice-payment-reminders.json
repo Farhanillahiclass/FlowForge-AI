@@ -1,0 +1,106 @@
+{
+  "name": "10 - Invoice and Payment Reminder Controls",
+  "nodes": [
+    {
+      "id": "schedule",
+      "name": "Daily Invoice Review",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        200,
+        300
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 24
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "source",
+      "name": "Read Invoice Register — Configure Google Sheets",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        450,
+        300
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "filter",
+      "name": "Filter Unpaid Overdue Invoices",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        700,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const now=Date.now();return $input.all().filter(i=>String(i.json.status||'').toLowerCase()==='unpaid'&&Date.parse(i.json.dueDate)<now&&Number(i.json.reminderCount||0)<3).map(i=>({json:{...i.json,daysOverdue:Math.floor((now-Date.parse(i.json.dueDate))/86400000),eligibleForReminder:true}}));"
+      }
+    },
+    {
+      "id": "send",
+      "name": "Send Reminder — Configure Gmail and Update Register",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        960,
+        300
+      ],
+      "parameters": {}
+    }
+  ],
+  "connections": {
+    "Daily Invoice Review": {
+      "main": [
+        [
+          {
+            "node": "Read Invoice Register — Configure Google Sheets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Invoice Register — Configure Google Sheets": {
+      "main": [
+        [
+          {
+            "node": "Filter Unpaid Overdue Invoices",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Unpaid Overdue Invoices": {
+      "main": [
+        [
+          {
+            "node": "Send Reminder — Configure Gmail and Update Register",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true
+  },
+  "versionId": "ffai-10-invoice-and-payment-reminder-controls",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}
