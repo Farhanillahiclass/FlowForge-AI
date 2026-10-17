@@ -1,38 +1,109 @@
 {
-  "name": "Expense Summary",
+  "name": "Calendar Booking Request",
   "nodes": [
     {
       "id": "trigger-5",
-      "name": "When clicking 'Execute workflow'",
-      "type": "n8n-nodes-base.manualTrigger",
-      "typeVersion": 1,
+      "name": "Receive request",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
       "position": [
-        240,
+        220,
         300
       ],
-      "parameters": {}
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "booking-request",
+        "responseMode": "lastNode",
+        "options": {}
+      }
     },
     {
-      "id": "action-5",
-      "name": "Process Example Data",
+      "id": "process-5",
+      "name": "Validate and prepare data",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        500,
+        470,
         300
       ],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const a=[{category:\"Transport\",amount:450},{category:\"Food\",amount:820},{category:\"Tools\",amount:1200},{category:\"Food\",amount:300}];const totals={};for(const x of a)totals[x.category]=(totals[x.category]||0)+x.amount;return [{json:{currency:\"PKR\",count:a.length,total:a.reduce((s,x)=>s+x.amount,0),byCategory:totals}}];"
+        "jsCode": "const b=$json.body||$json;const start=String(b.start||\"\");const end=String(b.end||\"\");const valid=!!b.name&&/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(String(b.email||\"\"))&&Number.isFinite(Date.parse(start))&&Number.isFinite(Date.parse(end))&&Date.parse(end)>Date.parse(start);return [{json:{name:String(b.name||\"\"),email:String(b.email||\"\"),start,end,topic:String(b.topic||\"Meeting\"),valid,summary:\"Meeting with \"+String(b.name||\"Guest\")+\" — \"+String(b.topic||\"General\"),description:\"Requested by \"+String(b.name||\"\")+\" (\"+String(b.email||\"\")+\")\",receivedAt:new Date().toISOString()}}];"
+      }
+    },
+    {
+      "id": "calendar-5",
+      "name": "Create Google Calendar event",
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1.3,
+      "position": [
+        720,
+        300
+      ],
+      "parameters": {
+        "calendar": {
+          "__rl": true,
+          "value": "primary",
+          "mode": "list",
+          "cachedResultName": "Primary Calendar"
+        },
+        "start": "={{ $json.start }}",
+        "end": "={{ $json.end }}",
+        "useDefaultReminders": true,
+        "additionalFields": {
+          "summary": "={{ $json.calendarSummary || $json.summary || 'Business meeting' }}",
+          "description": "={{ $json.calendarDescription || $json.description || '' }}"
+        }
+      }
+    },
+    {
+      "id": "gmail-5",
+      "name": "Send Gmail notification",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        970,
+        300
+      ],
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "sendTo": "={{ $json.email || 'YOUR_TEAM_EMAIL@example.com' }}",
+        "subject": "={{ $json.subject || $json.emailSubject || 'FlowForge-AI notification' }}",
+        "emailType": "text",
+        "message": "={{ $json.body || $json.emailBody || $json.alert || $json.reviewText || $json.slackText || JSON.stringify($json) }}",
+        "options": {}
       }
     }
   ],
   "connections": {
-    "When clicking 'Execute workflow'": {
+    "Receive request": {
       "main": [
         [
           {
-            "node": "Process Example Data",
+            "node": "Validate and prepare data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate and prepare data": {
+      "main": [
+        [
+          {
+            "node": "Create Google Calendar event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Google Calendar event": {
+      "main": [
+        [
+          {
+            "node": "Send Gmail notification",
             "type": "main",
             "index": 0
           }
@@ -42,11 +113,12 @@
   },
   "active": false,
   "settings": {
-    "executionOrder": "v1"
+    "executionOrder": "v1",
+    "saveManualExecutions": true
   },
-  "versionId": "flowforge-template-5",
+  "versionId": "flowforge-pro-5",
   "meta": {
-    "templateCredsSetupCompleted": true
+    "templateCredsSetupCompleted": false
   },
   "tags": []
 }
