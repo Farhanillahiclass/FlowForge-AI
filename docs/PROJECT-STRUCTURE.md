@@ -8,7 +8,7 @@ Every business workflow lives in one directory under `workflows/<number>-<slug>/
 - `workflow.json` — canonical n8n import/export.
 - `Code.gs` — optional Google Apps Script adapter.
 
-The former root-level numbered JSON exports and parallel `apps-script/` and `workflow-guides/` trees are being removed after their content was consolidated into each workflow's README. Do not recreate these mirrors.
+The former root-level numbered JSON exports and parallel `apps-script/` and `workflow-guides/` mirror trees have been removed after their content was consolidated into each workflow's README. Do not recreate these mirrors.
 
 ## System layer
 
