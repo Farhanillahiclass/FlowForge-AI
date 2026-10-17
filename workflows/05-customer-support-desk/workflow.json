@@ -1,0 +1,154 @@
+{
+  "name": "05 - Customer Support Ticket Intake",
+  "nodes": [
+    {
+      "id": "wh",
+      "name": "Receive Support Ticket",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        200,
+        300
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "support-ticket-intake",
+        "responseMode": "lastNode",
+        "options": {}
+      }
+    },
+    {
+      "id": "classify",
+      "name": "Validate and Classify Ticket",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        450,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const b=$json.body||$json; const message=String(b.message||'').trim(); const email=String(b.email||'').trim().toLowerCase(); const priority=/urgent|blocked|cannot access|security/i.test(message)?'high':'normal'; const category=/refund|payment|invoice/i.test(message)?'billing':/error|bug|crash|not working/i.test(message)?'technical':'general'; const valid=!!message&&/^[^\\\\s@]+@[^\\\\s@]+\\\\.[^\\\\s@]+$/.test(email); return [{json:{ticketId:'SUP-'+Date.now(),name:String(b.name||'').trim(),email,message,priority,category,status:'open',valid,createdAt:new Date().toISOString()}}];"
+      }
+    },
+    {
+      "id": "if",
+      "name": "Valid Ticket?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        700,
+        300
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "valid",
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "ok",
+      "name": "Return Ticket Details",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        950,
+        220
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "responseCode": 200
+        }
+      }
+    },
+    {
+      "id": "bad",
+      "name": "Return Validation Error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        950,
+        420
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\"ok\":false,\"message\":\"A valid email and message are required\"}",
+        "options": {
+          "responseCode": 400
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Receive Support Ticket": {
+      "main": [
+        [
+          {
+            "node": "Validate and Classify Ticket",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate and Classify Ticket": {
+      "main": [
+        [
+          {
+            "node": "Valid Ticket?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Valid Ticket?": {
+      "main": [
+        [
+          {
+            "node": "Return Ticket Details",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Return Validation Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "ffai-05",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}

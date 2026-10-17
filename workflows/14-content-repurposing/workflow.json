@@ -1,0 +1,171 @@
+{
+  "name": "14 - Multi-platform Content Repurposing",
+  "nodes": [
+    {
+      "id": "trigger",
+      "name": "Submit Source Content",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        200,
+        300
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "content-repurpose",
+        "responseMode": "lastNode",
+        "options": {}
+      }
+    },
+    {
+      "id": "validate",
+      "name": "Validate Source and Targets",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        450,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const b=$json.body||$json;const sourceText=String(b.sourceText||'').trim();return [{json:{sourceText,targets:Array.isArray(b.targets)?b.targets:['linkedin','instagram','youtube'],tone:b.tone||'professional',valid:sourceText.length>=50,approvalRequired:true,status:sourceText.length>=50?'ready-for-drafting':'needs-more-source',submittedAt:new Date().toISOString()}}];"
+      }
+    },
+    {
+      "id": "if",
+      "name": "Source Valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        700,
+        300
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "valid",
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "llm",
+      "name": "Connect LLM Node and Create Platform-specific Drafts",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        960,
+        200
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "approve",
+      "name": "Store Drafts and Require Human Approval Before Publishing",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1210,
+        200
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "bad",
+      "name": "Return Invalid Source",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        960,
+        420
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\"ok\":false,\"message\":\"Provide at least 50 characters of source content\"}",
+        "options": {
+          "responseCode": 400
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Submit Source Content": {
+      "main": [
+        [
+          {
+            "node": "Validate Source and Targets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Source and Targets": {
+      "main": [
+        [
+          {
+            "node": "Source Valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Source Valid?": {
+      "main": [
+        [
+          {
+            "node": "Connect LLM Node and Create Platform-specific Drafts",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Return Invalid Source",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Connect LLM Node and Create Platform-specific Drafts": {
+      "main": [
+        [
+          {
+            "node": "Store Drafts and Require Human Approval Before Publishing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true
+  },
+  "versionId": "ffai-14-multi-platform-content-repurposing",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}
