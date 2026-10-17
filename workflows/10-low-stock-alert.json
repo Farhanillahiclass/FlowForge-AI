@@ -1,0 +1,52 @@
+{
+  "name": "Low Stock Inventory",
+  "nodes": [
+    {
+      "id": "trigger-10",
+      "name": "When clicking 'Execute workflow'",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        240,
+        300
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "action-10",
+      "name": "Process Example Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        500,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const threshold=5;const a=[{sku:\"A-100\",name:\"Notebook\",stock:12},{sku:\"B-200\",name:\"USB Cable\",stock:3},{sku:\"C-300\",name:\"Mouse\",stock:0},{sku:\"D-400\",name:\"Pen\",stock:5}];return a.map(x=>({json:{...x,needsRestock:x.stock<=threshold,status:x.stock===0?\"out-of-stock\":x.stock<=threshold?\"low-stock\":\"ok\"}}));"
+      }
+    }
+  ],
+  "connections": {
+    "When clicking 'Execute workflow'": {
+      "main": [
+        [
+          {
+            "node": "Process Example Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "flowforge-template-10",
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "tags": []
+}
