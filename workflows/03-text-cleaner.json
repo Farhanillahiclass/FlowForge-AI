@@ -1,38 +1,114 @@
 {
-  "name": "Text Cleaner",
+  "name": "Telegram Lead Alert",
   "nodes": [
     {
       "id": "trigger-3",
-      "name": "When clicking 'Execute workflow'",
-      "type": "n8n-nodes-base.manualTrigger",
-      "typeVersion": 1,
+      "name": "Receive request",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
       "position": [
-        240,
+        220,
         300
       ],
-      "parameters": {}
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "telegram-lead-alert",
+        "responseMode": "lastNode",
+        "options": {}
+      }
     },
     {
-      "id": "action-3",
-      "name": "Process Example Data",
+      "id": "process-3",
+      "name": "Validate and prepare data",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        500,
+        470,
         300
       ],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const s=\"  FlowForge-AI   builds USEFUL workflows.  \";const cleaned=s.trim().replace(/\\s+/g,\" \");return [{json:{original:s,cleaned,lowercase:cleaned.toLowerCase(),wordCount:cleaned.split(\" \").length}}];"
+        "jsCode": "const b=$json.body||$json;const name=String(b.name||\"New lead\");const email=String(b.email||\"\");return [{json:{name,email,source:String(b.source||\"unknown\"),message:String(b.message||\"\"),createdAt:new Date().toISOString(),summary:\"New lead: \"+name+\" | \"+email+\" | source: \"+String(b.source||\"unknown\")}}];"
+      }
+    },
+    {
+      "id": "sheets-3",
+      "name": "Log to Google Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        720,
+        300
+      ],
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Sheet1",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "telegram-3",
+      "name": "Send Telegram message",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        970,
+        300
+      ],
+      "parameters": {
+        "resource": "message",
+        "operation": "sendMessage",
+        "chatId": "YOUR_TELEGRAM_CHAT_ID",
+        "text": "={{ $json.summary || $json.reply || JSON.stringify($json) }}",
+        "additionalFields": {}
       }
     }
   ],
   "connections": {
-    "When clicking 'Execute workflow'": {
+    "Receive request": {
       "main": [
         [
           {
-            "node": "Process Example Data",
+            "node": "Validate and prepare data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate and prepare data": {
+      "main": [
+        [
+          {
+            "node": "Log to Google Sheets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log to Google Sheets": {
+      "main": [
+        [
+          {
+            "node": "Send Telegram message",
             "type": "main",
             "index": 0
           }
@@ -42,11 +118,12 @@
   },
   "active": false,
   "settings": {
-    "executionOrder": "v1"
+    "executionOrder": "v1",
+    "saveManualExecutions": true
   },
-  "versionId": "flowforge-template-3",
+  "versionId": "flowforge-pro-3",
   "meta": {
-    "templateCredsSetupCompleted": true
+    "templateCredsSetupCompleted": false
   },
   "tags": []
 }
