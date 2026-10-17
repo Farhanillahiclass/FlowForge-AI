@@ -63,3 +63,16 @@ LinkedIn: [Muhammad Farhan](https://www.linkedin.com/in/muhammadfarhanmrs/)
 YouTube: [FarhanMRSDeveloper](https://www.youtube.com/@FarhanMRSDeveloper)
 
 *Build carefully. Test every node. Automate responsibly.*
+
+## Individual implementation guides
+Every workflow has a separate guide covering credentials, implementation steps, test cases and remaining production checks:
+
+- [All 20 workflow guides](workflow-guides/README.md)
+- [Testing and validation report](TESTING-AND-VALIDATION.md)
+- [Google Sheets Apps Script gateway](apps-script/FlowForgeSheetGateway.gs)
+
+### Google Sheets Apps Script starter
+The script is a starter gateway for appending lead, support and feedback records to a Google Sheet. Follow its comments and the [Apps Script setup notes](workflow-guides/01-lead-capture-crm.md). Configure Script Properties and use test data first. Query-string tokens can leak into logs; for sensitive/production use, use a reviewed authenticated gateway. The script does not magically attach a Sheet to every workflow: connect the n8n HTTP Request or Google Sheets nodes explicitly in each workflow that needs it.
+
+## Testing transparency
+Repository-level files and documentation have been added, but no live execution against your n8n server or connected accounts was possible from GitHub alone. Refer to [TESTING-AND-VALIDATION.md](TESTING-AND-VALIDATION.md). Do not claim end-to-end production tests passed until you run them in n8n.
