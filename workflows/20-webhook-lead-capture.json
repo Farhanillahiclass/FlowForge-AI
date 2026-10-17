@@ -1,0 +1,57 @@
+{
+  "name": "Webhook Lead Capture",
+  "nodes": [
+    {
+      "id": "trigger-20",
+      "name": "Lead Capture Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        240,
+        300
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "flowforge-lead-capture",
+        "responseMode": "lastNode",
+        "options": {}
+      }
+    },
+    {
+      "id": "action-20",
+      "name": "Normalize Lead Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        500,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const b=$json.body||$json;const email=String(b.email||\"\").trim().toLowerCase();const name=String(b.name||\"\").trim();const validEmail=/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email);return [{json:{received:true,name,email,validEmail,source:String(b.source||\"webhook\"),receivedAt:new Date().toISOString(),nextStep:validEmail?\"Ready for a CRM or email node\":\"Check the submitted email before continuing\"}}];"
+      }
+    }
+  ],
+  "connections": {
+    "Lead Capture Webhook": {
+      "main": [
+        [
+          {
+            "node": "Normalize Lead Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "flowforge-template-20",
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "tags": []
+}
