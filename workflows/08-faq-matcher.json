@@ -1,114 +1,38 @@
 {
-  "name": "Instagram Content Approval Queue",
+  "name": "08 — FAQ Intent Matcher",
   "nodes": [
     {
-      "id": "trigger-8",
-      "name": "Receive request",
-      "type": "n8n-nodes-base.webhook",
-      "typeVersion": 2.1,
+      "id": "manual",
+      "name": "Run workflow manually",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
       "position": [
-        220,
+        240,
         300
       ],
-      "parameters": {
-        "httpMethod": "POST",
-        "path": "instagram-content-review",
-        "responseMode": "lastNode",
-        "options": {}
-      }
+      "parameters": {}
     },
     {
-      "id": "process-8",
-      "name": "Validate and prepare data",
+      "id": "process",
+      "name": "Validate and process input",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        470,
+        500,
         300
       ],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const b=$json.body||$json;const caption=String(b.caption||\"\").trim();const imageUrl=String(b.imageUrl||\"\").trim();return [{json:{caption,imageUrl,scheduledAt:String(b.scheduledAt||\"\"),platform:\"Instagram\",status:\"pending_approval\",valid:caption.length>0&&/^https?:\\/\\//i.test(imageUrl),reviewText:\"Instagram post pending approval: \"+caption.slice(0,250),createdAt:new Date().toISOString()}}];"
-      }
-    },
-    {
-      "id": "sheets-8",
-      "name": "Log to Google Sheets",
-      "type": "n8n-nodes-base.googleSheets",
-      "typeVersion": 4.5,
-      "position": [
-        720,
-        300
-      ],
-      "parameters": {
-        "operation": "append",
-        "documentId": {
-          "__rl": true,
-          "value": "YOUR_GOOGLE_SHEET_ID",
-          "mode": "id"
-        },
-        "sheetName": {
-          "__rl": true,
-          "value": "Sheet1",
-          "mode": "name"
-        },
-        "columns": {
-          "mappingMode": "autoMapInputData",
-          "value": {},
-          "matchingColumns": [],
-          "schema": [],
-          "attemptToConvertTypes": false,
-          "convertFieldsToString": false
-        },
-        "options": {}
-      }
-    },
-    {
-      "id": "slack-8",
-      "name": "Notify Slack",
-      "type": "n8n-nodes-base.slack",
-      "typeVersion": 2.2,
-      "position": [
-        970,
-        300
-      ],
-      "parameters": {
-        "resource": "message",
-        "operation": "post",
-        "channel": "YOUR_SLACK_CHANNEL_ID",
-        "text": "={{ $json.slackText || $json.alert || JSON.stringify($json) }}",
-        "otherOptions": {}
+        "jsCode": "const faq=[{keywords:[\"refund\",\"return\",\"money back\"],answer:\"Please review the published refund policy or contact support for case-specific help.\"},{keywords:[\"password\",\"login\",\"sign in\",\"account\"],answer:\"Use the official password-reset flow and never share your password or verification code.\"},{keywords:[\"price\",\"pricing\",\"cost\",\"quote\"],answer:\"Contact the sales team for current pricing and a quote.\"},{keywords:[\"human\",\"agent\",\"support\",\"person\"],answer:\"Route this request to the customer support team.\"}];return $input.all().map(i=>{const q=String(i.json.question||i.json.message||\"\").toLowerCase();const match=faq.find(f=>f.keywords.some(k=>q.includes(k)));return {json:{question:q,matched:!!match,matchedIntent:match?match.keywords[0]:\"unknown\",suggestedAnswer:match?match.answer:\"No reliable FAQ match. Route to a human support agent.\",needsHumanReview:!match,processedAt:new Date().toISOString()}}});"
       }
     }
   ],
   "connections": {
-    "Receive request": {
+    "Run workflow manually": {
       "main": [
         [
           {
-            "node": "Validate and prepare data",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Validate and prepare data": {
-      "main": [
-        [
-          {
-            "node": "Log to Google Sheets",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Log to Google Sheets": {
-      "main": [
-        [
-          {
-            "node": "Notify Slack",
+            "node": "Validate and process input",
             "type": "main",
             "index": 0
           }
