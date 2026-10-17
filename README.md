@@ -83,7 +83,7 @@ FlowForge-AI/
 └── README.md
 ```
 
-The per-workflow folders are the single source of truth. Root-level workflow JSON copies and parallel `apps-script/` and `workflow-guides/` directories are being removed after each workflow guide was consolidated into its own README.
+The per-workflow folders are the single source of truth. Duplicate root-level workflow JSON files and the parallel `apps-script/` and `workflow-guides/` mirror directories have been removed; their detailed workflow guidance is now consolidated into each workflow's own README.
 
 ## Quick start
 
