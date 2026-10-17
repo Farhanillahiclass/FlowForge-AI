@@ -1,45 +1,37 @@
 {
-  "name": "Sales Inquiry Router",
+  "name": "07 — Customer Support Ticket Triage",
   "nodes": [
     {
-      "id": "trigger-7",
-      "name": "Receive request",
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "support-ticket-intake",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "support-webhook",
+      "name": "Receive Support Request",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2.1,
       "position": [
         220,
         300
-      ],
-      "parameters": {
-        "httpMethod": "POST",
-        "path": "sales-inquiry",
-        "responseMode": "lastNode",
-        "options": {}
-      }
+      ]
     },
     {
-      "id": "process-7",
-      "name": "Validate and prepare data",
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const b = $json.body || $json;\nconst subject = String(b.subject || 'Support request').trim();\nconst message = String(b.message || '').trim();\nconst text = (subject + ' ' + message).toLowerCase();\nconst priority = /payment|blocked|urgent|cannot login|security|hacked/.test(text) ? 'high' : /error|bug|broken|not working/.test(text) ? 'medium' : 'normal';\nconst email = String(b.email || '').trim().toLowerCase();\nreturn [{ json: { ticketId: 'T-' + Date.now(), name: String(b.name || 'Customer'), email, subject, message, priority, queue: priority === 'high' ? 'urgent-support' : 'general-support', validEmail: /^[^\\\\s@]+@[^\\\\s@]+\\\\.[^\\\\s@]+$/.test(email), status: 'open', receivedAt: new Date().toISOString(), alertText: 'New ' + priority.toUpperCase() + ' support ticket: ' + subject + ' — ' + message.slice(0, 500) } }];"
+      },
+      "id": "triage-ticket",
+      "name": "Classify and Prepare Ticket",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        470,
+        480,
         300
-      ],
-      "parameters": {
-        "mode": "runOnceForAllItems",
-        "jsCode": "const b=$json.body||$json;const topic=String(b.topic||b.message||\"\").toLowerCase();const department=/pricing|quote|buy|sales/.test(topic)?\"sales\":/bug|error|support|help/.test(topic)?\"support\":/invoice|payment|billing/.test(topic)?\"billing\":\"general\";return [{json:{name:String(b.name||\"\"),email:String(b.email||\"\"),company:String(b.company||\"\"),topic:String(b.topic||\"\"),message:String(b.message||\"\"),department,receivedAt:new Date().toISOString(),slackText:\"New \"+department+\" inquiry from \"+String(b.name||\"unknown\")+\" (\"+String(b.company||\"no company\")+\"): \"+String(b.message||b.topic||\"No details\")}}];"
-      }
+      ]
     },
     {
-      "id": "sheets-7",
-      "name": "Log to Google Sheets",
-      "type": "n8n-nodes-base.googleSheets",
-      "typeVersion": 4.5,
-      "position": [
-        720,
-        300
-      ],
       "parameters": {
         "operation": "append",
         "documentId": {
@@ -49,7 +41,7 @@
         },
         "sheetName": {
           "__rl": true,
-          "value": "Sheet1",
+          "value": "SupportTickets",
           "mode": "name"
         },
         "columns": {
@@ -61,84 +53,171 @@
           "convertFieldsToString": false
         },
         "options": {}
-      }
+      },
+      "id": "log-ticket",
+      "name": "Log Ticket to Google Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        740,
+        300
+      ]
     },
     {
-      "id": "slack-7",
-      "name": "Notify Slack",
-      "type": "n8n-nodes-base.slack",
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "high-priority",
+              "leftValue": "={{ $json.priority }}",
+              "rightValue": "high",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "priority-check",
+      "name": "High Priority?",
+      "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        970,
+        990,
         300
-      ],
+      ]
+    },
+    {
       "parameters": {
         "resource": "message",
         "operation": "post",
         "channel": "YOUR_SLACK_CHANNEL_ID",
-        "text": "={{ $json.slackText || $json.alert || JSON.stringify($json) }}",
+        "text": "={{ $json.alertText }}",
         "otherOptions": {}
-      }
+      },
+      "id": "slack-alert",
+      "name": "Alert Support Team in Slack",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.2,
+      "position": [
+        1240,
+        200
+      ]
     },
     {
-      "id": "gmail-7",
-      "name": "Send Gmail notification",
-      "type": "n8n-nodes-base.gmail",
-      "typeVersion": 2.1,
-      "position": [
-        1220,
-        300
-      ],
       "parameters": {
         "resource": "message",
         "operation": "send",
-        "sendTo": "={{ $json.email || 'YOUR_TEAM_EMAIL@example.com' }}",
-        "subject": "={{ $json.subject || $json.emailSubject || 'FlowForge-AI notification' }}",
+        "sendTo": "={{ $json.email }}",
+        "subject": "We received your support request",
         "emailType": "text",
-        "message": "={{ $json.body || $json.emailBody || $json.alert || $json.reviewText || $json.slackText || JSON.stringify($json) }}",
+        "message": "=Hi {{ $json.name }},\\n\\nWe received your support request ({{ $json.ticketId }}). Our team will review it and follow up.\\n\\nRegards,\\nCustomer Support",
         "options": {}
-      }
+      },
+      "id": "customer-receipt",
+      "name": "Send Customer Receipt",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        1240,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\"ok\":true,\"message\":\"Support request received\"}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "support-response",
+      "name": "Respond to Website",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        1500,
+        300
+      ]
     }
   ],
   "connections": {
-    "Receive request": {
+    "Receive Support Request": {
       "main": [
         [
           {
-            "node": "Validate and prepare data",
+            "node": "Classify and Prepare Ticket",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Validate and prepare data": {
+    "Classify and Prepare Ticket": {
       "main": [
         [
           {
-            "node": "Log to Google Sheets",
+            "node": "Log Ticket to Google Sheets",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Log to Google Sheets": {
+    "Log Ticket to Google Sheets": {
       "main": [
         [
           {
-            "node": "Notify Slack",
+            "node": "High Priority?",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Notify Slack": {
+    "High Priority?": {
       "main": [
         [
           {
-            "node": "Send Gmail notification",
+            "node": "Alert Support Team in Slack",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Customer Receipt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Alert Support Team in Slack": {
+      "main": [
+        [
+          {
+            "node": "Send Customer Receipt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Customer Receipt": {
+      "main": [
+        [
+          {
+            "node": "Respond to Website",
             "type": "main",
             "index": 0
           }
@@ -151,7 +230,7 @@
     "executionOrder": "v1",
     "saveManualExecutions": true
   },
-  "versionId": "flowforge-pro-7",
+  "versionId": "flowforge-support-v2",
   "meta": {
     "templateCredsSetupCompleted": false
   },
