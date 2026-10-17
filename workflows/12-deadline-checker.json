@@ -1,9 +1,9 @@
 {
-  "name": "Deadline Checker",
+  "name": "12 — Task Deadline and SLA Monitor",
   "nodes": [
     {
-      "id": "trigger-12",
-      "name": "When clicking 'Execute workflow'",
+      "id": "manual",
+      "name": "Run workflow manually",
       "type": "n8n-nodes-base.manualTrigger",
       "typeVersion": 1,
       "position": [
@@ -13,8 +13,8 @@
       "parameters": {}
     },
     {
-      "id": "action-12",
-      "name": "Process Example Data",
+      "id": "process",
+      "name": "Validate and process input",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
@@ -23,16 +23,16 @@
       ],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const a=[{task:\"Submit project\",due:\"2026-10-20\"},{task:\"Review docs\",due:\"2026-10-15\"},{task:\"Plan sprint\",due:\"2026-10-25\"}];const today=new Date();today.setUTCHours(0,0,0,0);return a.map(x=>{const due=new Date(x.due+\"T00:00:00Z\");const days=Math.ceil((due-today)/86400000);return {json:{...x,daysRemaining:days,status:days<0?\"overdue\":days===0?\"due-today\":\"upcoming\"}}});"
+        "jsCode": "return $input.all().map(i=>{const r=i.json;const due=Date.parse(r.dueDate||r.deadline||\"\");const valid=Number.isFinite(due);const remaining=valid?Math.ceil((due-Date.now())/86400000):null;const status=!valid?\"invalid-date\":remaining<0?\"overdue\":remaining===0?\"due-today\":remaining<=2?\"due-soon\":\"on-track\";return {json:{...r,validDueDate:valid,daysRemaining:remaining,status,requiresAttention:[\"overdue\",\"due-today\",\"due-soon\"].includes(status),checkedAt:new Date().toISOString()}}});"
       }
     }
   ],
   "connections": {
-    "When clicking 'Execute workflow'": {
+    "Run workflow manually": {
       "main": [
         [
           {
-            "node": "Process Example Data",
+            "node": "Validate and process input",
             "type": "main",
             "index": 0
           }
@@ -42,11 +42,12 @@
   },
   "active": false,
   "settings": {
-    "executionOrder": "v1"
+    "executionOrder": "v1",
+    "saveManualExecutions": true
   },
-  "versionId": "flowforge-template-12",
+  "versionId": "flowforge-pro-12",
   "meta": {
-    "templateCredsSetupCompleted": true
+    "templateCredsSetupCompleted": false
   },
   "tags": []
 }
