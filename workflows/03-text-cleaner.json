@@ -1,114 +1,38 @@
 {
-  "name": "Telegram Lead Alert",
+  "name": "03 — Text Intake Cleaner",
   "nodes": [
     {
-      "id": "trigger-3",
-      "name": "Receive request",
-      "type": "n8n-nodes-base.webhook",
-      "typeVersion": 2.1,
+      "id": "manual",
+      "name": "Run workflow manually",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
       "position": [
-        220,
+        240,
         300
       ],
-      "parameters": {
-        "httpMethod": "POST",
-        "path": "telegram-lead-alert",
-        "responseMode": "lastNode",
-        "options": {}
-      }
+      "parameters": {}
     },
     {
-      "id": "process-3",
-      "name": "Validate and prepare data",
+      "id": "process",
+      "name": "Validate and process input",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        470,
+        500,
         300
       ],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const b=$json.body||$json;const name=String(b.name||\"New lead\");const email=String(b.email||\"\");return [{json:{name,email,source:String(b.source||\"unknown\"),message:String(b.message||\"\"),createdAt:new Date().toISOString(),summary:\"New lead: \"+name+\" | \"+email+\" | source: \"+String(b.source||\"unknown\")}}];"
-      }
-    },
-    {
-      "id": "sheets-3",
-      "name": "Log to Google Sheets",
-      "type": "n8n-nodes-base.googleSheets",
-      "typeVersion": 4.5,
-      "position": [
-        720,
-        300
-      ],
-      "parameters": {
-        "operation": "append",
-        "documentId": {
-          "__rl": true,
-          "value": "YOUR_GOOGLE_SHEET_ID",
-          "mode": "id"
-        },
-        "sheetName": {
-          "__rl": true,
-          "value": "Sheet1",
-          "mode": "name"
-        },
-        "columns": {
-          "mappingMode": "autoMapInputData",
-          "value": {},
-          "matchingColumns": [],
-          "schema": [],
-          "attemptToConvertTypes": false,
-          "convertFieldsToString": false
-        },
-        "options": {}
-      }
-    },
-    {
-      "id": "telegram-3",
-      "name": "Send Telegram message",
-      "type": "n8n-nodes-base.telegram",
-      "typeVersion": 1.2,
-      "position": [
-        970,
-        300
-      ],
-      "parameters": {
-        "resource": "message",
-        "operation": "sendMessage",
-        "chatId": "YOUR_TELEGRAM_CHAT_ID",
-        "text": "={{ $json.summary || $json.reply || JSON.stringify($json) }}",
-        "additionalFields": {}
+        "jsCode": "return $input.all().map((item)=>{const d=item.json;const raw=String(d.text??d.message??\"\");const cleaned=raw.replace(/\\s+/g,\" \").trim();return {json:{...d,originalLength:raw.length,cleanedText:cleaned,cleanedLength:cleaned.length,wordCount:cleaned?cleaned.split(\" \").length:0,wasChanged:raw!==cleaned}}});"
       }
     }
   ],
   "connections": {
-    "Receive request": {
+    "Run workflow manually": {
       "main": [
         [
           {
-            "node": "Validate and prepare data",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Validate and prepare data": {
-      "main": [
-        [
-          {
-            "node": "Log to Google Sheets",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Log to Google Sheets": {
-      "main": [
-        [
-          {
-            "node": "Send Telegram message",
+            "node": "Validate and process input",
             "type": "main",
             "index": 0
           }
