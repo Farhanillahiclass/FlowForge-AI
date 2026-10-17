@@ -1,38 +1,116 @@
 {
-  "name": "Hello World",
+  "name": "Lead Capture CRM",
   "nodes": [
     {
       "id": "trigger-1",
-      "name": "When clicking 'Execute workflow'",
-      "type": "n8n-nodes-base.manualTrigger",
-      "typeVersion": 1,
+      "name": "Receive request",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
       "position": [
-        240,
+        220,
         300
       ],
-      "parameters": {}
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "lead-capture",
+        "responseMode": "lastNode",
+        "options": {}
+      }
     },
     {
-      "id": "action-1",
-      "name": "Process Example Data",
+      "id": "process-1",
+      "name": "Validate and prepare data",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        500,
+        470,
         300
       ],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "return [{json:{message:\"Hello from FlowForge-AI!\",createdAt:new Date().toISOString(),status:\"ready\"}}];"
+        "jsCode": "const b=$json.body||$json;const email=String(b.email||\"\").trim().toLowerCase();const name=String(b.name||\"\").trim();return [{json:{name,email,company:String(b.company||\"\"),source:String(b.source||\"website\"),message:String(b.message||\"\"),valid:/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email),receivedAt:new Date().toISOString(),status:\"new\"}}];"
+      }
+    },
+    {
+      "id": "sheets-1",
+      "name": "Log to Google Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        720,
+        300
+      ],
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Sheet1",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "gmail-1",
+      "name": "Send Gmail notification",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        970,
+        300
+      ],
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "sendTo": "={{ $json.email || 'YOUR_TEAM_EMAIL@example.com' }}",
+        "subject": "={{ $json.subject || $json.emailSubject || 'FlowForge-AI notification' }}",
+        "emailType": "text",
+        "message": "={{ $json.body || $json.emailBody || $json.alert || $json.reviewText || $json.slackText || JSON.stringify($json) }}",
+        "options": {}
       }
     }
   ],
   "connections": {
-    "When clicking 'Execute workflow'": {
+    "Receive request": {
       "main": [
         [
           {
-            "node": "Process Example Data",
+            "node": "Validate and prepare data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate and prepare data": {
+      "main": [
+        [
+          {
+            "node": "Log to Google Sheets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log to Google Sheets": {
+      "main": [
+        [
+          {
+            "node": "Send Gmail notification",
             "type": "main",
             "index": 0
           }
@@ -42,11 +120,12 @@
   },
   "active": false,
   "settings": {
-    "executionOrder": "v1"
+    "executionOrder": "v1",
+    "saveManualExecutions": true
   },
-  "versionId": "flowforge-template-1",
+  "versionId": "flowforge-pro-1",
   "meta": {
-    "templateCredsSetupCompleted": true
+    "templateCredsSetupCompleted": false
   },
   "tags": []
 }
