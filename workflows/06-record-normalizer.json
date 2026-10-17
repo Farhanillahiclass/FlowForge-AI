@@ -1,114 +1,38 @@
 {
-  "name": "Sales Follow-up Alert",
+  "name": "06 — CRM Contact Normalizer",
   "nodes": [
     {
-      "id": "trigger-6",
-      "name": "Receive request",
-      "type": "n8n-nodes-base.webhook",
-      "typeVersion": 2.1,
+      "id": "manual",
+      "name": "Run workflow manually",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
       "position": [
-        220,
+        240,
         300
       ],
-      "parameters": {
-        "httpMethod": "POST",
-        "path": "sales-follow-up",
-        "responseMode": "lastNode",
-        "options": {}
-      }
+      "parameters": {}
     },
     {
-      "id": "process-6",
-      "name": "Validate and prepare data",
+      "id": "process",
+      "name": "Validate and process input",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        470,
+        500,
         300
       ],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const b=$json.body||$json;const due=new Date(b.followUpDate||\"\");const overdue=Number.isFinite(due.getTime())&&due<new Date();return [{json:{...b,overdue,followUpStatus:overdue?\"OVERDUE\":\"review\",checkedAt:new Date().toISOString(),alert:\"Follow-up for \"+String(b.name||b.company||\"lead\")+\" is \"+(overdue?\"overdue\":\"due for review\")}}];"
-      }
-    },
-    {
-      "id": "sheets-6",
-      "name": "Log to Google Sheets",
-      "type": "n8n-nodes-base.googleSheets",
-      "typeVersion": 4.5,
-      "position": [
-        720,
-        300
-      ],
-      "parameters": {
-        "operation": "append",
-        "documentId": {
-          "__rl": true,
-          "value": "YOUR_GOOGLE_SHEET_ID",
-          "mode": "id"
-        },
-        "sheetName": {
-          "__rl": true,
-          "value": "Sheet1",
-          "mode": "name"
-        },
-        "columns": {
-          "mappingMode": "autoMapInputData",
-          "value": {},
-          "matchingColumns": [],
-          "schema": [],
-          "attemptToConvertTypes": false,
-          "convertFieldsToString": false
-        },
-        "options": {}
-      }
-    },
-    {
-      "id": "slack-6",
-      "name": "Notify Slack",
-      "type": "n8n-nodes-base.slack",
-      "typeVersion": 2.2,
-      "position": [
-        970,
-        300
-      ],
-      "parameters": {
-        "resource": "message",
-        "operation": "post",
-        "channel": "YOUR_SLACK_CHANNEL_ID",
-        "text": "={{ $json.slackText || $json.alert || JSON.stringify($json) }}",
-        "otherOptions": {}
+        "jsCode": "return $input.all().map((item)=>{const r=item.json;const email=String(r.email||\"\").trim().toLowerCase();const name=String(r.name||[r.firstName,r.lastName].filter(Boolean).join(\" \")).replace(/\\s+/g,\" \").trim();const phone=String(r.phone||\"\").trim();const issues=[];if(!name)issues.push(\"missing_name\");if(email&&!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email))issues.push(\"invalid_email\");return {json:{...r,name,email,phone,valid:issues.length===0,validationIssues:issues,normalizedAt:new Date().toISOString()}}});"
       }
     }
   ],
   "connections": {
-    "Receive request": {
+    "Run workflow manually": {
       "main": [
         [
           {
-            "node": "Validate and prepare data",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Validate and prepare data": {
-      "main": [
-        [
-          {
-            "node": "Log to Google Sheets",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Log to Google Sheets": {
-      "main": [
-        [
-          {
-            "node": "Notify Slack",
+            "node": "Validate and process input",
             "type": "main",
             "index": 0
           }
