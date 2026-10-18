@@ -14,7 +14,8 @@
         "httpMethod": "POST",
         "path": "instagram-publish-request",
         "responseMode": "lastNode",
-        "options": {}
+        "options": {},
+        "authentication": "headerAuth"
       }
     },
     {
@@ -28,7 +29,7 @@
       ],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const b=$json.body||$json;const caption=String(b.caption||'').trim();const imageUrl=String(b.imageUrl||'').trim();const valid=!!caption&&/^https:\\/\\//i.test(imageUrl);return [{json:{caption,imageUrl,valid,approvalRequired:true,status:valid?'pending-approval':'invalid-input',submittedAt:new Date().toISOString(),note:'Publishing requires eligible Instagram professional account and Meta API permissions.'}}];"
+        "jsCode": "const b=$json.body||$json; const caption=String(b.caption||'').trim(); const imageUrl=String(b.imageUrl||'').trim(); const requestId=String(b.requestId||b.eventId||'').trim(); const approved=b.approved===true; const valid=!!requestId&&!!caption&&/^https:\\/\\//i.test(imageUrl); return [{json:{requestId,caption,imageUrl,approved,valid,approvalRequired:true,status:!valid?'invalid-input':approved?'approved-for-publishing':'pending-approval',submittedAt:new Date().toISOString()}}];"
       }
     },
     {
@@ -67,30 +68,205 @@
     },
     {
       "id": "publish",
-      "name": "Human Approval → Meta Media Container → Publish → Poll Status",
-      "type": "n8n-nodes-base.noOp",
-      "typeVersion": 1,
+      "name": "Create Instagram Media Container",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
       "position": [
         960,
         200
       ],
-      "parameters": {}
+      "parameters": {
+        "method": "POST",
+        "url": "=https://graph.facebook.com/REPLACE_WITH_GRAPH_API_VERSION/REPLACE_WITH_IG_USER_ID/media",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "image_url",
+              "value": "={{ $('Validate Caption and Public Media URL').first().json.imageUrl }}"
+            },
+            {
+              "name": "caption",
+              "value": "={{ $('Validate Caption and Public Media URL').first().json.caption }}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "responseFormat": "json"
+          }
+        }
+      }
     },
     {
       "id": "bad",
       "name": "Return Invalid Draft",
-      "type": "n8n-nodes-base.respondToWebhook",
-      "typeVersion": 1.4,
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
       "position": [
         960,
         420
       ],
       "parameters": {
-        "respondWith": "json",
-        "responseBody": "{\"ok\":false,\"message\":\"Caption and public HTTPS media URL required\"}",
+        "mode": "runOnceForAllItems",
+        "jsCode": "const d=$json||{}; return [{json:{...d,ok:false,status:'rejected',httpStatus:400,requestId:String(d.requestId||d.eventId||d._flowforge?.requestId||''),error:String(d.error||'invalid_input')}}];"
+      }
+    },
+    {
+      "id": "approved-gate",
+      "name": "Explicitly Approved?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        850,
+        150
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "approved",
+              "leftValue": "={{ $('Validate Caption and Public Media URL').first().json.approved }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "wait-container",
+      "name": "Wait for Media Processing",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1080,
+        150
+      ],
+      "parameters": {
+        "resume": "timeInterval",
+        "amount": 10,
+        "unit": "seconds"
+      }
+    },
+    {
+      "id": "publish-container",
+      "name": "Publish Approved Media",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1310,
+        150
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "=https://graph.facebook.com/REPLACE_WITH_GRAPH_API_VERSION/REPLACE_WITH_IG_USER_ID/media_publish",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "creation_id",
+              "value": "={{ $('Create Instagram Media Container').first().json.id }}"
+            }
+          ]
+        },
         "options": {
-          "responseCode": 400
+          "response": {
+            "responseFormat": "json"
+          }
         }
+      }
+    },
+    {
+      "id": "publish-result",
+      "name": "Return Instagram Publish Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1550,
+        150
+      ],
+      "parameters": {
+        "jsCode": "const e=$json||{}; const src=$('Validate Caption and Public Media URL').first().json; return [{json:{ok:true,status:'publish-request-sent',httpStatus:200,requestId:src.requestId,instagramMediaId:e.id||'',caption:src.caption,approvalRecorded:src.approved}}];"
+      }
+    },
+    {
+      "id": "pending-result",
+      "name": "Return Awaiting Approval",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1080,
+        330
+      ],
+      "parameters": {
+        "jsCode": "const e=$('Validate Caption and Public Media URL').first().json; return [{json:{ok:true,status:'pending-approval',httpStatus:202,requestId:e.requestId,message:'Submit the same request with approved=true after review',approvalRequired:true}}];"
+      }
+    },
+    {
+      "id": "subflow-trigger",
+      "name": "Called by Parent Workflow",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -650,
+        560
+      ],
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "requestId",
+              "type": "string"
+            },
+            {
+              "name": "eventType",
+              "type": "string"
+            },
+            {
+              "name": "source",
+              "type": "string"
+            },
+            {
+              "name": "occurredAt",
+              "type": "string"
+            },
+            {
+              "name": "data",
+              "type": "object"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "subflow-adapter",
+      "name": "Normalize Parent Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -400,
+        560
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const e=$json||{}; const d=e.data&&typeof e.data==='object'&&!Array.isArray(e.data)?e.data:{}; const requestId=String(e.requestId||e.eventId||''); return [{json:{...d,requestId,eventId:requestId,eventType:String(e.eventType||''),source:String(e.source||'parent-workflow'),occurredAt:String(e.occurredAt||new Date().toISOString()),_flowforge:{requestId,eventType:String(e.eventType||''),source:String(e.source||'parent-workflow')}}}];"
       }
     }
   ],
@@ -121,7 +297,7 @@
       "main": [
         [
           {
-            "node": "Human Approval → Meta Media Container → Publish → Poll Status",
+            "node": "Explicitly Approved?",
             "type": "main",
             "index": 0
           }
@@ -129,6 +305,79 @@
         [
           {
             "node": "Return Invalid Draft",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Explicitly Approved?": {
+      "main": [
+        [
+          {
+            "node": "Create Instagram Media Container",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Return Awaiting Approval",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Instagram Media Container": {
+      "main": [
+        [
+          {
+            "node": "Wait for Media Processing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait for Media Processing": {
+      "main": [
+        [
+          {
+            "node": "Publish Approved Media",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Publish Approved Media": {
+      "main": [
+        [
+          {
+            "node": "Return Instagram Publish Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Called by Parent Workflow": {
+      "main": [
+        [
+          {
+            "node": "Normalize Parent Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Parent Payload": {
+      "main": [
+        [
+          {
+            "node": "Validate Caption and Public Media URL",
             "type": "main",
             "index": 0
           }

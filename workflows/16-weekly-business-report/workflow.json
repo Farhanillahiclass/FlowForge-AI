@@ -23,25 +23,55 @@
     },
     {
       "id": "leads",
-      "name": "Read Lead Metrics — Configure Sheets or CRM",
-      "type": "n8n-nodes-base.noOp",
-      "typeVersion": 1,
+      "name": "Read Lead Metrics",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
       "position": [
         450,
         200
       ],
-      "parameters": {}
+      "parameters": {
+        "operation": "getAll",
+        "documentId": {
+          "__rl": true,
+          "value": "REPLACE_WITH_LEADS_SPREADSHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Leads",
+          "mode": "name"
+        },
+        "returnAll": true,
+        "options": {}
+      },
+      "alwaysOutputData": true
     },
     {
       "id": "tickets",
-      "name": "Read Support Metrics — Configure Helpdesk",
-      "type": "n8n-nodes-base.noOp",
-      "typeVersion": 1,
+      "name": "Read Support Metrics",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
       "position": [
         450,
         400
       ],
-      "parameters": {}
+      "parameters": {
+        "operation": "getAll",
+        "documentId": {
+          "__rl": true,
+          "value": "REPLACE_WITH_SUPPORT_SPREADSHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "SupportTickets",
+          "mode": "name"
+        },
+        "returnAll": true,
+        "options": {}
+      },
+      "alwaysOutputData": true
     },
     {
       "id": "aggregate",
@@ -54,19 +84,154 @@
       ],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const rows=$input.all().map(i=>i.json);return [{json:{generatedAt:new Date().toISOString(),recordsReceived:rows.length,sourceRows:rows,metricsStatus:rows.length?'data-received':'awaiting-data-source',note:'Define KPI formulas and date windows before sending a client report.'}}];"
+        "jsCode": "const leads=$('Tag Lead Rows').all().map(i=>i.json); const tickets=$('Tag Support Rows').all().map(i=>i.json); const since=Date.now()-7*24*60*60*1000; const recent=(rows)=>rows.filter(r=>{const raw=r.createdAt||r.receivedAt||r.timestamp;const ts=Date.parse(raw||'');return Number.isFinite(ts)&&ts>=since;}).length; const summary={generatedAt:new Date().toISOString(),periodStart:new Date(since).toISOString(),periodEnd:new Date().toISOString(),leadRowsTotal:leads.filter(r=>r.row_number!==undefined||Object.keys(r).length>1).length,supportRowsTotal:tickets.filter(r=>r.row_number!==undefined||Object.keys(r).length>1).length,leadsLast7Days:recent(leads),supportTicketsLast7Days:recent(tickets)}; summary.emailBody='Weekly business report\\\\nPeriod: '+summary.periodStart+' to '+summary.periodEnd+'\\\\nTotal lead rows: '+summary.leadRowsTotal+'\\\\nNew leads (timestamps available, last 7 days): '+summary.leadsLast7Days+'\\\\nTotal support rows: '+summary.supportRowsTotal+'\\\\nNew support tickets (timestamps available, last 7 days): '+summary.supportTicketsLast7Days+'\\\\nGenerated: '+summary.generatedAt+'\\\\nNote: counts depend on your spreadsheet schema and timestamp fields.'; return [{json:summary}];"
       }
     },
     {
       "id": "send",
-      "name": "Format HTML Report → Gmail Delivery → Log Report Period",
-      "type": "n8n-nodes-base.noOp",
-      "typeVersion": 1,
+      "name": "Send Weekly Report Email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
       "position": [
         980,
         300
       ],
-      "parameters": {}
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "sendTo": "REPLACE_WITH_REPORT_RECIPIENT",
+        "subject": "Weekly Business Report",
+        "emailType": "text",
+        "message": "={{ $('Aggregate Report Inputs').first().json.emailBody }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "tag-leads",
+      "name": "Tag Lead Rows",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        420,
+        160
+      ],
+      "parameters": {
+        "jsCode": "return $input.all().map(i=>({json:{...i.json,_reportSource:'lead'}}));"
+      }
+    },
+    {
+      "id": "tag-tickets",
+      "name": "Tag Support Rows",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        420,
+        380
+      ],
+      "parameters": {
+        "jsCode": "return $input.all().map(i=>({json:{...i.json,_reportSource:'support'}}));"
+      }
+    },
+    {
+      "id": "log-report",
+      "name": "Log Report Run",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        1280,
+        260
+      ],
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "REPLACE_WITH_REPORT_LOG_SPREADSHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "ReportLog",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "generatedAt": "={{ $('Aggregate Report Inputs').first().json.generatedAt }}",
+            "periodStart": "={{ $('Aggregate Report Inputs').first().json.periodStart }}",
+            "periodEnd": "={{ $('Aggregate Report Inputs').first().json.periodEnd }}",
+            "leadRowsTotal": "={{ $('Aggregate Report Inputs').first().json.leadRowsTotal }}",
+            "supportRowsTotal": "={{ $('Aggregate Report Inputs').first().json.supportRowsTotal }}"
+          },
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "report-result",
+      "name": "Return Report Run Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1510,
+        260
+      ],
+      "parameters": {
+        "jsCode": "const e=$('Aggregate Report Inputs').first().json;return [{json:{ok:true,status:'report-sent',generatedAt:e.generatedAt,periodStart:e.periodStart,periodEnd:e.periodEnd,leadRowsTotal:e.leadRowsTotal,supportRowsTotal:e.supportRowsTotal}}];"
+      }
+    },
+    {
+      "id": "subflow-trigger",
+      "name": "Called by Parent Workflow",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -650,
+        560
+      ],
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "requestId",
+              "type": "string"
+            },
+            {
+              "name": "eventType",
+              "type": "string"
+            },
+            {
+              "name": "source",
+              "type": "string"
+            },
+            {
+              "name": "occurredAt",
+              "type": "string"
+            },
+            {
+              "name": "data",
+              "type": "object"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "subflow-adapter",
+      "name": "Normalize Parent Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -400,
+        560
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const e=$json||{}; const d=e.data&&typeof e.data==='object'&&!Array.isArray(e.data)?e.data:{}; const requestId=String(e.requestId||e.eventId||''); return [{json:{...d,requestId,eventId:requestId,eventType:String(e.eventType||''),source:String(e.source||'parent-workflow'),occurredAt:String(e.occurredAt||new Date().toISOString()),_flowforge:{requestId,eventType:String(e.eventType||''),source:String(e.source||'parent-workflow')}}}];"
+      }
     }
   ],
   "connections": {
@@ -74,34 +239,34 @@
       "main": [
         [
           {
-            "node": "Read Lead Metrics — Configure Sheets or CRM",
+            "node": "Read Lead Metrics",
             "type": "main",
             "index": 0
           },
           {
-            "node": "Read Support Metrics — Configure Helpdesk",
+            "node": "Read Support Metrics",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Read Lead Metrics — Configure Sheets or CRM": {
+    "Read Lead Metrics": {
       "main": [
         [
           {
-            "node": "Aggregate Report Inputs",
+            "node": "Tag Lead Rows",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Read Support Metrics — Configure Helpdesk": {
+    "Read Support Metrics": {
       "main": [
         [
           {
-            "node": "Aggregate Report Inputs",
+            "node": "Tag Support Rows",
             "type": "main",
             "index": 0
           }
@@ -112,7 +277,78 @@
       "main": [
         [
           {
-            "node": "Format HTML Report → Gmail Delivery → Log Report Period",
+            "node": "Send Weekly Report Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tag Lead Rows": {
+      "main": [
+        [
+          {
+            "node": "Aggregate Report Inputs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tag Support Rows": {
+      "main": [
+        [
+          {
+            "node": "Aggregate Report Inputs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Weekly Report Email": {
+      "main": [
+        [
+          {
+            "node": "Log Report Run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Report Run": {
+      "main": [
+        [
+          {
+            "node": "Return Report Run Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Called by Parent Workflow": {
+      "main": [
+        [
+          {
+            "node": "Normalize Parent Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Parent Payload": {
+      "main": [
+        [
+          {
+            "node": "Read Lead Metrics",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Read Support Metrics",
             "type": "main",
             "index": 0
           }

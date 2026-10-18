@@ -23,19 +23,77 @@
       ],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const e=$json.execution||{};const w=$json.workflow||{};return [{json:{alertedAt:new Date().toISOString(),workflowName:w.name||'unknown',workflowId:w.id||'',executionId:e.id||'',executionUrl:e.url||'',lastNodeExecuted:e.lastNodeExecuted||'',errorMessage:String(e.error?.message||$json.error?.message||'Workflow failed').slice(0,500),note:'Do not include credential values or full customer payloads in alerts.'}}];"
+        "jsCode": "const root=$json||{}; const e=root.execution||root.data?.execution||{};const w=root.workflow||root.data?.workflow||{}; const err=e.error||root.error||root.data?.error||{};return [{json:{alertedAt:new Date().toISOString(),workflowName:String(w.name||root.workflowName||'unknown'),workflowId:String(w.id||root.workflowId||''),executionId:String(e.id||root.executionId||''),executionUrl:String(e.url||root.executionUrl||''),lastNodeExecuted:String(e.lastNodeExecuted||root.lastNodeExecuted||''),errorMessage:String(err.message||root.errorMessage||'Workflow failed').slice(0,500),note:'Do not include credential values or full customer payloads in alerts.'}}];"
       }
     },
     {
       "id": "notify",
-      "name": "Send Alert — Configure Slack, Telegram or Gmail",
-      "type": "n8n-nodes-base.noOp",
-      "typeVersion": 1,
+      "name": "Email Sanitized Workflow Error Alert",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
       "position": [
         720,
         300
       ],
-      "parameters": {}
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "sendTo": "REPLACE_WITH_OPS_ALERT_EMAIL",
+        "subject": "[FlowForge-AI] Workflow failed: {{ $('Sanitize Error Context').first().json.workflowName }}",
+        "emailType": "text",
+        "message": "=Workflow: {{ $('Sanitize Error Context').first().json.workflowName }}\\nWorkflow ID: {{ $('Sanitize Error Context').first().json.workflowId }}\\nExecution: {{ $('Sanitize Error Context').first().json.executionUrl }}\\nLast node: {{ $('Sanitize Error Context').first().json.lastNodeExecuted }}\\nError: {{ $('Sanitize Error Context').first().json.errorMessage }}\\nTime: {{ $('Sanitize Error Context').first().json.alertedAt }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "subflow-trigger",
+      "name": "Called by Parent Workflow",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -650,
+        560
+      ],
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "requestId",
+              "type": "string"
+            },
+            {
+              "name": "eventType",
+              "type": "string"
+            },
+            {
+              "name": "source",
+              "type": "string"
+            },
+            {
+              "name": "occurredAt",
+              "type": "string"
+            },
+            {
+              "name": "data",
+              "type": "object"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "subflow-adapter",
+      "name": "Normalize Parent Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -400,
+        560
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const e=$json||{}; const d=e.data&&typeof e.data==='object'&&!Array.isArray(e.data)?e.data:{}; const requestId=String(e.requestId||e.eventId||''); return [{json:{...d,requestId,eventId:requestId,eventType:String(e.eventType||''),source:String(e.source||'parent-workflow'),occurredAt:String(e.occurredAt||new Date().toISOString()),_flowforge:{requestId,eventType:String(e.eventType||''),source:String(e.source||'parent-workflow')}}}];"
+      }
     }
   ],
   "connections": {
@@ -54,7 +112,29 @@
       "main": [
         [
           {
-            "node": "Send Alert — Configure Slack, Telegram or Gmail",
+            "node": "Email Sanitized Workflow Error Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Called by Parent Workflow": {
+      "main": [
+        [
+          {
+            "node": "Normalize Parent Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Parent Payload": {
+      "main": [
+        [
+          {
+            "node": "Sanitize Error Context",
             "type": "main",
             "index": 0
           }

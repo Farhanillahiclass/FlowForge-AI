@@ -14,7 +14,8 @@
         "httpMethod": "POST",
         "path": "faq-human-handoff",
         "responseMode": "lastNode",
-        "options": {}
+        "options": {},
+        "authentication": "headerAuth"
       }
     },
     {
@@ -28,7 +29,7 @@
       ],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const b=$json.body||$json;const q=String(b.question||b.message||'').toLowerCase();const faqs=[{keys:['pricing','price','cost'],answer:'Our team can share current pricing after learning your requirements.'},{keys:['hours','timing','open'],answer:'Please share your timezone so our team can confirm availability.'},{keys:['refund','return'],answer:'A support specialist will review your request.'}];const m=faqs.find(f=>f.keys.some(k=>q.includes(k)));return [{json:{question:b.question||b.message||'',email:b.email||'',answer:m?.answer||'A support specialist will follow up.',route:m?'faq-suggestion':'human-review',needsHuman:!m,createdAt:new Date().toISOString()}}];"
+        "jsCode": "const b=$json.body||$json; const q=String(b.question||b.message||'').toLowerCase(); const email=String(b.email||'').trim().toLowerCase(); const validEmail=/^[^\\\\s@]+@[^\\\\s@]+\\\\.[^\\\\s@]+$/.test(email); const faqs=[{keys:['pricing','price','cost'],answer:'Our team can share current pricing after learning your requirements.'},{keys:['hours','timing','open'],answer:'Please share your timezone so our team can confirm availability.'},{keys:['refund','return'],answer:'A support specialist will review your request.'}]; const m=faqs.find(f=>f.keys.some(k=>q.includes(k))); const needsHuman=!m||!validEmail; return [{json:{question:b.question||b.message||'',email,answer:m?.answer||'A support specialist will follow up.',route:needsHuman?'human-review':'faq-suggestion',needsHuman,validEmail,chatId:String(b.chatId||''),requestId:String(b.requestId||b.eventId||''),createdAt:new Date().toISOString()}}];"
       }
     },
     {
@@ -67,25 +68,91 @@
     },
     {
       "id": "handoff",
-      "name": "Human Handoff — Connect Telegram or Slack",
-      "type": "n8n-nodes-base.noOp",
-      "typeVersion": 1,
+      "name": "Send Support Handoff Email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
       "position": [
         960,
         200
       ],
-      "parameters": {}
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "sendTo": "REPLACE_WITH_SUPPORT_EMAIL",
+        "subject": "[FlowForge FAQ] Human review needed",
+        "emailType": "text",
+        "message": "=A customer question needs human review.\\nQuestion: {{ $('Match Approved FAQ').first().json.question }}\\nCustomer email: {{ $('Match Approved FAQ').first().json.email || 'not provided' }}\\nRequest ID: {{ $('Match Approved FAQ').first().json.requestId }}",
+        "options": {}
+      }
     },
     {
       "id": "answer",
-      "name": "FAQ Suggestion — Connect Customer Reply",
-      "type": "n8n-nodes-base.noOp",
-      "typeVersion": 1,
+      "name": "Send FAQ Suggestion Email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
       "position": [
         960,
         400
       ],
-      "parameters": {}
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "sendTo": "={{ $json.email }}",
+        "subject": "Response to your question",
+        "emailType": "text",
+        "message": "={{ $json.answer }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "subflow-trigger",
+      "name": "Called by Parent Workflow",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -600,
+        560
+      ],
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "requestId",
+              "type": "string"
+            },
+            {
+              "name": "eventType",
+              "type": "string"
+            },
+            {
+              "name": "source",
+              "type": "string"
+            },
+            {
+              "name": "occurredAt",
+              "type": "string"
+            },
+            {
+              "name": "data",
+              "type": "object"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "subflow-adapter",
+      "name": "Normalize Parent Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -350,
+        560
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const e=$json||{}; const d=e.data&&typeof e.data==='object'&&!Array.isArray(e.data)?e.data:{}; const requestId=String(e.requestId||e.eventId||''); return [{json:{...d,requestId,eventId:requestId,eventType:String(e.eventType||''),source:String(e.source||'parent-workflow'),occurredAt:String(e.occurredAt||new Date().toISOString()),_flowforge:{requestId,eventType:String(e.eventType||''),source:String(e.source||'parent-workflow')}}}];"
+      }
     }
   ],
   "connections": {
@@ -115,14 +182,36 @@
       "main": [
         [
           {
-            "node": "Human Handoff — Connect Telegram or Slack",
+            "node": "Send Support Handoff Email",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "FAQ Suggestion — Connect Customer Reply",
+            "node": "Send FAQ Suggestion Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Called by Parent Workflow": {
+      "main": [
+        [
+          {
+            "node": "Normalize Parent Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Parent Payload": {
+      "main": [
+        [
+          {
+            "node": "Match Approved FAQ",
             "type": "main",
             "index": 0
           }

@@ -14,7 +14,8 @@
         "httpMethod": "POST",
         "path": "client-onboarding",
         "responseMode": "lastNode",
-        "options": {}
+        "options": {},
+        "authentication": "headerAuth"
       }
     },
     {
@@ -28,7 +29,7 @@
       ],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const b=$json.body||$json;const name=String(b.clientName||b.name||'').trim();const email=String(b.email||'').trim().toLowerCase();const valid=!!name&&/^[^\\\\s@]+@[^\\\\s@]+\\\\.[^\\\\s@]+$/.test(email);return [{json:{clientName:name,email,service:b.service||'not specified',owner:b.owner||'unassigned',valid,status:'onboarding-pending',createdAt:new Date().toISOString(),checklist:['send-welcome-email','create-client-record','schedule-kickoff','collect-requirements']}}];"
+        "jsCode": "const b=$json.body||$json; const name=String(b.clientName||b.name||'').trim(); const email=String(b.email||'').trim().toLowerCase(); const requestId=String(b.requestId||b.eventId||'').trim(); const valid=!!requestId&&!!name&&/^[^\\\\s@]+@[^\\\\s@]+\\\\.[^\\\\s@]+$/.test(email); return [{json:{requestId,clientName:name,email,service:b.service||'not specified',owner:b.owner||'unassigned',valid,status:'onboarding-pending',createdAt:new Date().toISOString(),checklist:['send-welcome-email','create-client-record','schedule-kickoff','collect-requirements']}}];"
       }
     },
     {
@@ -67,30 +68,130 @@
     },
     {
       "id": "actions",
-      "name": "Configure Sheets CRM + Gmail Welcome + Calendar Kickoff",
-      "type": "n8n-nodes-base.noOp",
-      "typeVersion": 1,
+      "name": "Save Client Record",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
       "position": [
         960,
         200
       ],
-      "parameters": {}
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "REPLACE_WITH_CLIENTS_SPREADSHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Clients",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      }
     },
     {
       "id": "bad",
       "name": "Return Validation Error",
-      "type": "n8n-nodes-base.respondToWebhook",
-      "typeVersion": 1.4,
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
       "position": [
         960,
         420
       ],
       "parameters": {
-        "respondWith": "json",
-        "responseBody": "{\"ok\":false,\"message\":\"Client name and valid email required\"}",
-        "options": {
-          "responseCode": 400
+        "mode": "runOnceForAllItems",
+        "jsCode": "const d=$json||{}; return [{json:{...d,ok:false,status:'rejected',httpStatus:400,requestId:String(d.requestId||d.eventId||d._flowforge?.requestId||''),error:String(d.error||'invalid_input')}}];"
+      }
+    },
+    {
+      "id": "welcome-email",
+      "name": "Send Client Welcome Email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        1200,
+        180
+      ],
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "sendTo": "={{ $('Validate Client and Create Checklist').first().json.email }}",
+        "subject": "Welcome — onboarding next steps",
+        "emailType": "text",
+        "message": "=Welcome {{ $('Validate Client and Create Checklist').first().json.clientName }}!\\nWe have started your onboarding. Service: {{ $('Validate Client and Create Checklist').first().json.service }}.\\nNext steps: {{ $('Validate Client and Create Checklist').first().json.checklist.join(', ') }}\\nYour onboarding contact: {{ $('Validate Client and Create Checklist').first().json.owner }}.",
+        "options": {}
+      }
+    },
+    {
+      "id": "onboarding-result",
+      "name": "Return Onboarding Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1450,
+        180
+      ],
+      "parameters": {
+        "jsCode": "const e=$('Validate Client and Create Checklist').first().json; return [{json:{ok:true,status:'onboarding-started',httpStatus:200,requestId:e.requestId,clientName:e.clientName,email:e.email,checklist:e.checklist,welcomeEmailAttempted:true}}];"
+      }
+    },
+    {
+      "id": "subflow-trigger",
+      "name": "Called by Parent Workflow",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -600,
+        560
+      ],
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "requestId",
+              "type": "string"
+            },
+            {
+              "name": "eventType",
+              "type": "string"
+            },
+            {
+              "name": "source",
+              "type": "string"
+            },
+            {
+              "name": "occurredAt",
+              "type": "string"
+            },
+            {
+              "name": "data",
+              "type": "object"
+            }
+          ]
         }
+      }
+    },
+    {
+      "id": "subflow-adapter",
+      "name": "Normalize Parent Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -350,
+        560
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const e=$json||{}; const d=e.data&&typeof e.data==='object'&&!Array.isArray(e.data)?e.data:{}; const requestId=String(e.requestId||e.eventId||''); return [{json:{...d,requestId,eventId:requestId,eventType:String(e.eventType||''),source:String(e.source||'parent-workflow'),occurredAt:String(e.occurredAt||new Date().toISOString()),_flowforge:{requestId,eventType:String(e.eventType||''),source:String(e.source||'parent-workflow')}}}];"
       }
     }
   ],
@@ -121,7 +222,7 @@
       "main": [
         [
           {
-            "node": "Configure Sheets CRM + Gmail Welcome + Calendar Kickoff",
+            "node": "Save Client Record",
             "type": "main",
             "index": 0
           }
@@ -129,6 +230,50 @@
         [
           {
             "node": "Return Validation Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Client Record": {
+      "main": [
+        [
+          {
+            "node": "Send Client Welcome Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Client Welcome Email": {
+      "main": [
+        [
+          {
+            "node": "Return Onboarding Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Called by Parent Workflow": {
+      "main": [
+        [
+          {
+            "node": "Normalize Parent Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Parent Payload": {
+      "main": [
+        [
+          {
+            "node": "Validate Client and Create Checklist",
             "type": "main",
             "index": 0
           }

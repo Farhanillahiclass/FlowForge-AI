@@ -14,12 +14,13 @@
         "httpMethod": "POST",
         "path": "lead-score-routing",
         "responseMode": "lastNode",
-        "options": {}
+        "options": {},
+        "authentication": "headerAuth"
       }
     },
     {
       "id": "code",
-      "name": "Score Lead",
+      "name": "Validate and Score Lead",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
@@ -28,24 +29,202 @@
       ],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const b=$json.body||$json; const budget=Number(b.budget||0); const score=(b.company?15:0)+(budget>=5000?35:budget>=1000?20:0)+(b.timeline==='urgent'?30:10); return [{json:{name:b.name||'',email:String(b.email||'').toLowerCase(),company:b.company||'',score,tier:score>=65?'hot':score>=40?'warm':'cold',createdAt:new Date().toISOString()}}];"
+        "jsCode": "const b=$json.body||$json;const requestId=String(b.requestId||b.eventId||'').trim();const name=String(b.name||'').trim();const email=String(b.email||'').trim().toLowerCase();const company=String(b.company||'').trim();const budget=Number(b.budget||0);const timeline=String(b.timeline||'').toLowerCase();const valid=!!requestId&&!!name&&/^[^\\\\s@]+@[^\\\\s@]+\\\\.[^\\\\s@]+$/.test(email)&&Number.isFinite(budget)&&budget>=0;const score=Math.min(100,(company?15:0)+(budget>=5000?35:budget>=1000?20:budget>0?10:0)+(timeline==='urgent'?30:timeline==='soon'?20:10)+(b.decisionMaker===true?20:0));return [{json:{requestId,eventType:String(b.eventType||'lead.score_requested'),name,email,company,budget,timeline,score,tier:score>=65?'hot':score>=40?'warm':'cold',valid,createdAt:new Date().toISOString(),status:'scored'}}];"
       }
     },
     {
       "id": "reply",
-      "name": "Return Lead Score",
-      "type": "n8n-nodes-base.respondToWebhook",
-      "typeVersion": 1.4,
+      "name": "Return Lead Score Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
       "position": [
         700,
         300
       ],
       "parameters": {
-        "respondWith": "json",
-        "responseBody": "={{ JSON.stringify($json) }}",
-        "options": {
-          "responseCode": 200
+        "mode": "runOnceForAllItems",
+        "jsCode": "const e=$('Validate and Score Lead').first().json;return [{json:{ok:true,status:'scored',httpStatus:200,requestId:e.requestId,lead:{name:e.name,email:e.email,company:e.company},score:e.score,tier:e.tier,notification:e.tier==='hot'?'sales-alert-attempted':'not-required'}}];"
+      }
+    },
+    {
+      "id": "subflow-trigger",
+      "name": "Called by Parent Workflow",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -500,
+        520
+      ],
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "requestId",
+              "type": "string"
+            },
+            {
+              "name": "eventType",
+              "type": "string"
+            },
+            {
+              "name": "source",
+              "type": "string"
+            },
+            {
+              "name": "occurredAt",
+              "type": "string"
+            },
+            {
+              "name": "data",
+              "type": "object"
+            }
+          ]
         }
+      }
+    },
+    {
+      "id": "subflow-adapter",
+      "name": "Normalize Parent Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -250,
+        520
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const e=$json||{}; const d=e.data&&typeof e.data==='object'&&!Array.isArray(e.data)?e.data:{}; const requestId=String(e.requestId||e.eventId||''); return [{json:{...d,requestId,eventId:requestId,eventType:String(e.eventType||''),source:String(e.source||'parent-workflow'),occurredAt:String(e.occurredAt||new Date().toISOString()),_flowforge:{requestId,eventType:String(e.eventType||''),source:String(e.source||'parent-workflow')}}}];"
+      }
+    },
+    {
+      "id": "validate-if",
+      "name": "Lead Data Valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        690,
+        300
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "lead-valid",
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "score-log",
+      "name": "Log Lead Score",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        930,
+        220
+      ],
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "REPLACE_WITH_SCORE_LOG_SPREADSHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "LeadScores",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "hot-if",
+      "name": "Hot Lead?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1170,
+        220
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "hot",
+              "leftValue": "={{ $('Validate and Score Lead').first().json.tier }}",
+              "rightValue": "hot",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "sales-alert",
+      "name": "Notify Sales for Hot Lead",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        1410,
+        130
+      ],
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "sendTo": "REPLACE_WITH_SALES_PRIORITY_EMAIL",
+        "subject": "Hot lead: {{ $('Validate and Score Lead').first().json.name }}",
+        "emailType": "text",
+        "message": "=Hot lead scored {{ $('Validate and Score Lead').first().json.score }}/100.\\nRequest ID: {{ $('Validate and Score Lead').first().json.requestId }}\\nName: {{ $('Validate and Score Lead').first().json.name }}\\nEmail: {{ $('Validate and Score Lead').first().json.email }}\\nCompany: {{ $('Validate and Score Lead').first().json.company }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "invalid-result",
+      "name": "Return Invalid Lead Score Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        930,
+        430
+      ],
+      "parameters": {
+        "jsCode": "const e=$('Validate and Score Lead').first().json;return [{json:{ok:false,status:'rejected',httpStatus:422,requestId:e.requestId||'',error:'invalid_lead',message:'requestId, name, valid email and nonnegative budget are required'}}];"
       }
     }
   ],
@@ -54,18 +233,98 @@
       "main": [
         [
           {
-            "node": "Score Lead",
+            "node": "Validate and Score Lead",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Score Lead": {
+    "Validate and Score Lead": {
       "main": [
         [
           {
-            "node": "Return Lead Score",
+            "node": "Lead Data Valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lead Data Valid?": {
+      "main": [
+        [
+          {
+            "node": "Log Lead Score",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Return Invalid Lead Score Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Lead Score": {
+      "main": [
+        [
+          {
+            "node": "Hot Lead?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Hot Lead?": {
+      "main": [
+        [
+          {
+            "node": "Notify Sales for Hot Lead",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Return Lead Score Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notify Sales for Hot Lead": {
+      "main": [
+        [
+          {
+            "node": "Return Lead Score Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Called by Parent Workflow": {
+      "main": [
+        [
+          {
+            "node": "Normalize Parent Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Parent Payload": {
+      "main": [
+        [
+          {
+            "node": "Validate and Score Lead",
             "type": "main",
             "index": 0
           }

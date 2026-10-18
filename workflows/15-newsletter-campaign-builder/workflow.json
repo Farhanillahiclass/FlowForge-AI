@@ -14,7 +14,8 @@
         "httpMethod": "POST",
         "path": "newsletter-campaign",
         "responseMode": "lastNode",
-        "options": {}
+        "options": {},
+        "authentication": "headerAuth"
       }
     },
     {
@@ -28,7 +29,7 @@
       ],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const b=$json.body||$json;const subject=String(b.subject||'').trim();const body=String(b.body||'').trim();return [{json:{subject,body,audienceId:String(b.audienceId||''),valid:!!subject&&body.length>20,approvalRequired:true,status:'draft',consentRequired:true,unsubscribeSuppressionRequired:true,createdAt:new Date().toISOString()}}];"
+        "jsCode": "const b=$json.body||$json; const subject=String(b.subject||'').trim(); const body=String(b.body||'').trim(); const requestId=String(b.requestId||b.eventId||'').trim(); const approved=b.approved===true; return [{json:{requestId,subject,body,audienceId:String(b.audienceId||''),approved,valid:!!requestId&&!!subject&&body.length>20,approvalRequired:true,consentRequired:true,unsubscribeSuppressionRequired:true,status:!subject||body.length<=20||!requestId?'invalid-input':approved?'approved-for-send':'pending-approval',createdAt:new Date().toISOString()}}];"
       }
     },
     {
@@ -67,30 +68,226 @@
     },
     {
       "id": "send",
-      "name": "Connect Consented Subscriber Source → Suppression Check → Gmail/Email Service",
-      "type": "n8n-nodes-base.noOp",
-      "typeVersion": 1,
+      "name": "Read Newsletter Subscribers",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
       "position": [
         960,
         200
       ],
-      "parameters": {}
+      "parameters": {
+        "operation": "getAll",
+        "documentId": {
+          "__rl": true,
+          "value": "REPLACE_WITH_SUBSCRIBERS_SPREADSHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Subscribers",
+          "mode": "name"
+        },
+        "returnAll": true,
+        "options": {}
+      },
+      "alwaysOutputData": true
     },
     {
       "id": "bad",
       "name": "Return Invalid Campaign",
-      "type": "n8n-nodes-base.respondToWebhook",
-      "typeVersion": 1.4,
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
       "position": [
         960,
         420
       ],
       "parameters": {
-        "respondWith": "json",
-        "responseBody": "{\"ok\":false,\"message\":\"Subject and campaign body are required\"}",
-        "options": {
-          "responseCode": 400
+        "mode": "runOnceForAllItems",
+        "jsCode": "const d=$json||{}; return [{json:{...d,ok:false,status:'rejected',httpStatus:400,requestId:String(d.requestId||d.eventId||d._flowforge?.requestId||''),error:String(d.error||'invalid_input')}}];"
+      }
+    },
+    {
+      "id": "approved-gate",
+      "name": "Campaign Approved?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        850,
+        150
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "approved",
+              "leftValue": "={{ $('Validate Campaign and Require Approval').first().json.approved }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "select-consented",
+      "name": "Filter Consented Subscribers",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1090,
+        150
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const campaign=$('Validate Campaign and Require Approval').first().json; return $input.all().filter(i=>{const r=i.json;const email=String(r.email||'').trim();const consent=r.consent===true||String(r.consent).toLowerCase()==='true'||String(r.consent).toLowerCase()==='yes';const unsub=r.unsubscribed===true||String(r.unsubscribed).toLowerCase()==='true'||String(r.unsubscribed).toLowerCase()==='yes';const audience=!campaign.audienceId||String(r.audienceId||'')===campaign.audienceId;return /^[^\\\\s@]+@[^\\\\s@]+\\\\.[^\\\\s@]+$/.test(email)&&consent&&!unsub&&audience;}).map(i=>({json:{requestId:campaign.requestId,subject:campaign.subject,body:campaign.body,audienceId:campaign.audienceId,subscriberEmail:String(i.json.email).trim(),subscriberId:String(i.json.subscriberId||i.json.id||''),sentAt:new Date().toISOString()}}));"
+      }
+    },
+    {
+      "id": "send-newsletter",
+      "name": "Send Newsletter Email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        1330,
+        150
+      ],
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "sendTo": "={{ $json.subscriberEmail }}",
+        "subject": "={{ $json.subject }}",
+        "emailType": "text",
+        "message": "={{ $json.body }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "log-send",
+      "name": "Log Newsletter Delivery Attempt",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        1570,
+        150
+      ],
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "REPLACE_WITH_CAMPAIGN_LOG_SPREADSHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "CampaignLog",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "requestId": "={{ $('Filter Consented Subscribers').item.json.requestId }}",
+            "subscriberEmail": "={{ $('Filter Consented Subscribers').item.json.subscriberEmail }}",
+            "subscriberId": "={{ $('Filter Consented Subscribers').item.json.subscriberId }}",
+            "subject": "={{ $('Filter Consented Subscribers').item.json.subject }}",
+            "attemptedAt": "={{ new Date().toISOString() }}"
+          },
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 1000
+    },
+    {
+      "id": "pending-approval",
+      "name": "Return Pending Approval",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1090,
+        360
+      ],
+      "parameters": {
+        "jsCode": "const e=$('Validate Campaign and Require Approval').first().json; return [{json:{ok:true,status:'pending-approval',httpStatus:202,requestId:e.requestId,message:'No email was sent. Resubmit through protected workflow with approved=true only after approval.',approvalRequired:true}}];"
+      }
+    },
+    {
+      "id": "newsletter-result",
+      "name": "Return Campaign Run Summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1810,
+        150
+      ],
+      "parameters": {
+        "jsCode": "const source=$('Validate Campaign and Require Approval').first().json;const rows=$('Filter Consented Subscribers').all();return [{json:{ok:true,status:'send-steps-completed',httpStatus:200,requestId:source.requestId,audienceId:source.audienceId,consentedRecipientsSelected:rows.length,deliveryAttempted:true,note:'Verify destination provider and campaign log for delivery outcomes'}}];"
+      }
+    },
+    {
+      "id": "subflow-trigger",
+      "name": "Called by Parent Workflow",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -650,
+        560
+      ],
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "requestId",
+              "type": "string"
+            },
+            {
+              "name": "eventType",
+              "type": "string"
+            },
+            {
+              "name": "source",
+              "type": "string"
+            },
+            {
+              "name": "occurredAt",
+              "type": "string"
+            },
+            {
+              "name": "data",
+              "type": "object"
+            }
+          ]
         }
+      }
+    },
+    {
+      "id": "subflow-adapter",
+      "name": "Normalize Parent Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -400,
+        560
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const e=$json||{}; const d=e.data&&typeof e.data==='object'&&!Array.isArray(e.data)?e.data:{}; const requestId=String(e.requestId||e.eventId||''); return [{json:{...d,requestId,eventId:requestId,eventType:String(e.eventType||''),source:String(e.source||'parent-workflow'),occurredAt:String(e.occurredAt||new Date().toISOString()),_flowforge:{requestId,eventType:String(e.eventType||''),source:String(e.source||'parent-workflow')}}}];"
       }
     }
   ],
@@ -121,7 +318,7 @@
       "main": [
         [
           {
-            "node": "Connect Consented Subscriber Source → Suppression Check → Gmail/Email Service",
+            "node": "Campaign Approved?",
             "type": "main",
             "index": 0
           }
@@ -129,6 +326,90 @@
         [
           {
             "node": "Return Invalid Campaign",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Campaign Approved?": {
+      "main": [
+        [
+          {
+            "node": "Read Newsletter Subscribers",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Return Pending Approval",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Newsletter Subscribers": {
+      "main": [
+        [
+          {
+            "node": "Filter Consented Subscribers",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Consented Subscribers": {
+      "main": [
+        [
+          {
+            "node": "Send Newsletter Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Newsletter Email": {
+      "main": [
+        [
+          {
+            "node": "Log Newsletter Delivery Attempt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Newsletter Delivery Attempt": {
+      "main": [
+        [
+          {
+            "node": "Return Campaign Run Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Called by Parent Workflow": {
+      "main": [
+        [
+          {
+            "node": "Normalize Parent Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Parent Payload": {
+      "main": [
+        [
+          {
+            "node": "Validate Campaign and Require Approval",
             "type": "main",
             "index": 0
           }

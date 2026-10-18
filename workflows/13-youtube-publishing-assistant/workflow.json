@@ -14,7 +14,8 @@
         "httpMethod": "POST",
         "path": "youtube-publish-request",
         "responseMode": "lastNode",
-        "options": {}
+        "options": {},
+        "authentication": "headerAuth"
       }
     },
     {
@@ -28,7 +29,7 @@
       ],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const b=$json.body||$json;const title=String(b.title||'').trim();const description=String(b.description||'').trim();const tags=Array.isArray(b.tags)?b.tags:[];return [{json:{title,description,tags,videoFileReference:b.videoFileReference||'',valid:title.length>0&&description.length>0,visibility:b.visibility==='public'?'private':(b.visibility||'private'),approvalRequired:true,status:'metadata-ready',submittedAt:new Date().toISOString()}}];"
+        "jsCode": "const b=$json.body||$json; const title=String(b.title||'').trim(); const description=String(b.description||'').trim(); const tags=Array.isArray(b.tags)?b.tags:[]; const videoUrl=String(b.videoUrl||'').trim(); const requestId=String(b.requestId||b.eventId||'').trim(); const approved=b.approved===true; const visibility=approved&&b.visibility==='public'?'public':approved&&b.visibility==='unlisted'?'unlisted':'private'; const valid=!!requestId&&title.length>0&&description.length>0&&/^https:\\/\\//i.test(videoUrl); return [{json:{requestId,title,description,tags,videoUrl,valid,approved,visibility,approvalRequired:true,status:!valid?'invalid-input':approved?'approved-for-upload':'pending-approval',submittedAt:new Date().toISOString()}}];"
       }
     },
     {
@@ -67,29 +68,173 @@
     },
     {
       "id": "upload",
-      "name": "Human Approval → YouTube Upload Node → Processing Status → Notify Owner",
-      "type": "n8n-nodes-base.noOp",
-      "typeVersion": 1,
+      "name": "Download Video File",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
       "position": [
         960,
         200
       ],
-      "parameters": {}
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $('Validate Metadata and Default Private').first().json.videoUrl }}",
+        "options": {
+          "timeout": 300000,
+          "response": {
+            "response": {
+              "responseFormat": "file",
+              "outputPropertyName": "data"
+            }
+          }
+        }
+      }
     },
     {
       "id": "bad",
       "name": "Return Invalid Metadata",
-      "type": "n8n-nodes-base.respondToWebhook",
-      "typeVersion": 1.4,
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
       "position": [
         960,
         420
       ],
       "parameters": {
-        "respondWith": "json",
-        "responseBody": "{\"ok\":false,\"message\":\"Title and description are required\"}",
+        "mode": "runOnceForAllItems",
+        "jsCode": "const d=$json||{}; return [{json:{...d,ok:false,status:'rejected',httpStatus:400,requestId:String(d.requestId||d.eventId||d._flowforge?.requestId||''),error:String(d.error||'invalid_input')}}];"
+      }
+    },
+    {
+      "id": "approved-gate",
+      "name": "Explicitly Approved?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        850,
+        150
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "approved",
+              "leftValue": "={{ $('Validate Metadata and Default Private').first().json.approved }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "upload-result",
+      "name": "Return YouTube Upload Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1560,
+        150
+      ],
+      "parameters": {
+        "jsCode": "const u=$json||{}; const e=$('Validate Metadata and Default Private').first().json; return [{json:{ok:true,status:'uploaded',httpStatus:200,requestId:e.requestId,videoId:u.id||'',title:e.title,visibility:e.visibility,approvalRecorded:e.approved,note:'Verify final visibility and processing status in YouTube Studio'}}];"
+      }
+    },
+    {
+      "id": "pending-result",
+      "name": "Return Awaiting Approval",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1080,
+        330
+      ],
+      "parameters": {
+        "jsCode": "const e=$('Validate Metadata and Default Private').first().json; return [{json:{ok:true,status:'pending-approval',httpStatus:202,requestId:e.requestId,message:'Submit the same metadata and videoUrl with approved=true after review',approvalRequired:true}}];"
+      }
+    },
+    {
+      "id": "subflow-trigger",
+      "name": "Called by Parent Workflow",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -650,
+        560
+      ],
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "requestId",
+              "type": "string"
+            },
+            {
+              "name": "eventType",
+              "type": "string"
+            },
+            {
+              "name": "source",
+              "type": "string"
+            },
+            {
+              "name": "occurredAt",
+              "type": "string"
+            },
+            {
+              "name": "data",
+              "type": "object"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "subflow-adapter",
+      "name": "Normalize Parent Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -400,
+        560
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const e=$json||{}; const d=e.data&&typeof e.data==='object'&&!Array.isArray(e.data)?e.data:{}; const requestId=String(e.requestId||e.eventId||''); return [{json:{...d,requestId,eventId:requestId,eventType:String(e.eventType||''),source:String(e.source||'parent-workflow'),occurredAt:String(e.occurredAt||new Date().toISOString()),_flowforge:{requestId,eventType:String(e.eventType||''),source:String(e.source||'parent-workflow')}}}];"
+      }
+    },
+    {
+      "id": "upload-native",
+      "name": "Upload Video to YouTube",
+      "type": "n8n-nodes-base.youTube",
+      "typeVersion": 1,
+      "position": [
+        1320,
+        150
+      ],
+      "parameters": {
+        "resource": "video",
+        "operation": "upload",
+        "title": "={{ $('Validate Metadata and Default Private').first().json.title }}",
+        "regionCode": "US",
+        "categoryId": "22",
+        "binaryProperty": "data",
         "options": {
-          "responseCode": 400
+          "description": "={{ $('Validate Metadata and Default Private').first().json.description }}",
+          "tags": "={{ $('Validate Metadata and Default Private').first().json.tags.join(', ') }}",
+          "privacyStatus": "={{ $('Validate Metadata and Default Private').first().json.visibility }}",
+          "notifySubscribers": false,
+          "selfDeclaredMadeForKids": false
         }
       }
     }
@@ -121,7 +266,7 @@
       "main": [
         [
           {
-            "node": "Human Approval → YouTube Upload Node → Processing Status → Notify Owner",
+            "node": "Explicitly Approved?",
             "type": "main",
             "index": 0
           }
@@ -129,6 +274,68 @@
         [
           {
             "node": "Return Invalid Metadata",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Explicitly Approved?": {
+      "main": [
+        [
+          {
+            "node": "Download Video File",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Return Awaiting Approval",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download Video File": {
+      "main": [
+        [
+          {
+            "node": "Upload Video to YouTube",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Called by Parent Workflow": {
+      "main": [
+        [
+          {
+            "node": "Normalize Parent Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Parent Payload": {
+      "main": [
+        [
+          {
+            "node": "Validate Metadata and Default Private",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload Video to YouTube": {
+      "main": [
+        [
+          {
+            "node": "Return YouTube Upload Result",
             "type": "main",
             "index": 0
           }
