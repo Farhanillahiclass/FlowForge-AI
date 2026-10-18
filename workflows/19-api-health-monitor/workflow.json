@@ -34,8 +34,10 @@
         "url": "https://api.github.com",
         "options": {
           "timeout": 10000
-        }
-      }
+        },
+        "method": "GET"
+      },
+      "onError": "continueRegularOutput"
     },
     {
       "id": "http2",
@@ -50,8 +52,10 @@
         "url": "https://api.open-meteo.com/v1/forecast?latitude=31.52&longitude=74.36&current=temperature_2m",
         "options": {
           "timeout": 10000
-        }
-      }
+        },
+        "method": "GET"
+      },
+      "onError": "continueRegularOutput"
     },
     {
       "id": "evaluate",
@@ -64,19 +68,137 @@
       ],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "return $input.all().map(i=>({json:{checkedAt:new Date().toISOString(),target:i.json.url||i.json.request?.url||'configured endpoint',statusCode:i.json.statusCode||null,healthy:!i.json.error&&(!i.json.statusCode||i.json.statusCode<400),note:'For robust monitoring, configure HTTP node error output, timeout handling, previous-state storage, and recovery alerts.'}}));"
+        "jsCode": "return $input.all().map(i=>{const x=i.json||{};const status=Number(x.statusCode||x.status||0);const target=String(x.url||x.request?.url||x.headers?.url||'configured endpoint');return {json:{checkedAt:new Date().toISOString(),target,statusCode:status||null,healthy:!x.error&&(!status||status<400),errorMessage:String(x.error?.message||x.message||'').slice(0,300)}};});"
       }
     },
     {
       "id": "alert",
-      "name": "Alert Only on Failure or Recovery — Configure Notification",
-      "type": "n8n-nodes-base.noOp",
-      "typeVersion": 1,
+      "name": "Any Endpoint Unhealthy?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
       "position": [
         980,
         300
       ],
-      "parameters": {}
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "unhealthy",
+              "leftValue": "={{ $json.healthy }}",
+              "rightValue": false,
+              "operator": {
+                "type": "boolean",
+                "operation": "false",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "health-alert",
+      "name": "Email Health Failure Alert",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        1210,
+        160
+      ],
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "sendTo": "REPLACE_WITH_OPS_ALERT_EMAIL",
+        "subject": "[FlowForge-AI] API health check failed",
+        "emailType": "text",
+        "message": "=An API health check failed.\\nTarget: {{ $('Normalize Health Check Results').item.json.target }}\\nStatus code: {{ $('Normalize Health Check Results').item.json.statusCode }}\\nError: {{ $('Normalize Health Check Results').item.json.errorMessage }}\\nTime: {{ $('Normalize Health Check Results').item.json.checkedAt }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "health-failure-result",
+      "name": "Return Unhealthy Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1440,
+        160
+      ],
+      "parameters": {
+        "jsCode": "const e=$('Normalize Health Check Results').item.json;return [{json:{ok:false,status:'unhealthy',target:e.target,statusCode:e.statusCode,errorMessage:e.errorMessage,checkedAt:e.checkedAt,alertAttempted:true}}];"
+      }
+    },
+    {
+      "id": "health-success-result",
+      "name": "Return Healthy Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1210,
+        360
+      ],
+      "parameters": {
+        "jsCode": "const e=$('Normalize Health Check Results').item.json;return [{json:{ok:true,status:'healthy',target:e.target,statusCode:e.statusCode,checkedAt:e.checkedAt,alertAttempted:false}}];"
+      }
+    },
+    {
+      "id": "subflow-trigger",
+      "name": "Called by Parent Workflow",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -650,
+        560
+      ],
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "requestId",
+              "type": "string"
+            },
+            {
+              "name": "eventType",
+              "type": "string"
+            },
+            {
+              "name": "source",
+              "type": "string"
+            },
+            {
+              "name": "occurredAt",
+              "type": "string"
+            },
+            {
+              "name": "data",
+              "type": "object"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "subflow-adapter",
+      "name": "Normalize Parent Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -400,
+        560
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const e=$json||{}; const d=e.data&&typeof e.data==='object'&&!Array.isArray(e.data)?e.data:{}; const requestId=String(e.requestId||e.eventId||''); return [{json:{...d,requestId,eventId:requestId,eventType:String(e.eventType||''),source:String(e.source||'parent-workflow'),occurredAt:String(e.occurredAt||new Date().toISOString()),_flowforge:{requestId,eventType:String(e.eventType||''),source:String(e.source||'parent-workflow')}}}];"
+      }
     }
   ],
   "connections": {
@@ -122,7 +244,63 @@
       "main": [
         [
           {
-            "node": "Alert Only on Failure or Recovery — Configure Notification",
+            "node": "Any Endpoint Unhealthy?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Any Endpoint Unhealthy?": {
+      "main": [
+        [
+          {
+            "node": "Email Health Failure Alert",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Return Healthy Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Email Health Failure Alert": {
+      "main": [
+        [
+          {
+            "node": "Return Unhealthy Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Called by Parent Workflow": {
+      "main": [
+        [
+          {
+            "node": "Normalize Parent Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Parent Payload": {
+      "main": [
+        [
+          {
+            "node": "Check GitHub API",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Check Open-Meteo API",
             "type": "main",
             "index": 0
           }
