@@ -14,7 +14,8 @@
         "httpMethod": "POST",
         "path": "lead-capture-crm",
         "responseMode": "lastNode",
-        "options": {}
+        "options": {},
+        "authentication": "headerAuth"
       }
     },
     {
@@ -28,7 +29,7 @@
       ],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const b=$json.body||$json; const name=String(b.name||'').trim(); const email=String(b.email||'').trim().toLowerCase(); const valid=!!name && /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email); return [{json:{name,email,company:String(b.company||'').trim(),source:String(b.source||'website'),message:String(b.message||'').trim(),valid,status:'new',receivedAt:new Date().toISOString()}}];"
+        "jsCode": "const b=$json.body||$json; const name=String(b.name||'').trim(); const email=String(b.email||'').trim().toLowerCase(); const requestId=String(b.requestId||b.eventId||'').trim(); const valid=!!requestId&&!!name&&/^[^\\\\s@]+@[^\\\\s@]+\\\\.[^\\\\s@]+$/.test(email); return [{json:{requestId,eventType:String(b.eventType||'lead.created'),name,email,company:String(b.company||'').trim(),source:String(b.source||'website'),message:String(b.message||'').trim(),valid,status:'new',receivedAt:new Date().toISOString()}}];"
       }
     },
     {
@@ -71,7 +72,7 @@
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.5,
       "position": [
-        950,
+        1430,
         220
       ],
       "parameters": {
@@ -95,7 +96,8 @@
           "convertFieldsToString": false
         },
         "options": {}
-      }
+      },
+      "alwaysOutputData": false
     },
     {
       "id": "gmail",
@@ -103,7 +105,7 @@
       "type": "n8n-nodes-base.gmail",
       "typeVersion": 2.1,
       "position": [
-        1200,
+        1660,
         220
       ],
       "parameters": {
@@ -112,7 +114,7 @@
         "sendTo": "REPLACE_WITH_SALES_EMAIL",
         "subject": "New lead received",
         "emailType": "text",
-        "message": "=New lead received. Name: {{ $json.name }}; Email: {{ $json.email }}; Company: {{ $json.company }}",
+        "message": "=New lead received. Request ID: {{ $('Validate and Normalize').first().json.requestId }}; Name: {{ $('Validate and Normalize').first().json.name }}; Email: {{ $('Validate and Normalize').first().json.email }}; Company: {{ $('Validate and Normalize').first().json.company }}",
         "options": {}
       }
     },
@@ -127,7 +129,7 @@
       ],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const d=$json||{}; return [{json:{...d,ok:true,status:String(d.status||'completed'),httpStatus:200,requestId:String(d.requestId||d.eventId||d._flowforge?.requestId||'')}}];"
+        "jsCode": "const e=$('Validate and Normalize').first().json; return [{json:{ok:true,status:'accepted',httpStatus:200,requestId:e.requestId,lead:{name:e.name,email:e.email,company:e.company,source:e.source},notification:'sent-attempted',receivedAt:e.receivedAt}}];"
       }
     },
     {
@@ -141,7 +143,7 @@
       ],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const d=$json||{}; return [{json:{...d,ok:false,status:'rejected',httpStatus:400,requestId:String(d.requestId||d.eventId||d._flowforge?.requestId||''),error:String(d.error||'invalid_input')}}];"
+        "jsCode": "const e=$('Validate and Normalize').first().json; return [{json:{ok:false,status:'rejected',httpStatus:422,requestId:e.requestId||'',error:'invalid_lead',message:'requestId, name and valid email are required'}}];"
       }
     },
     {
@@ -193,6 +195,93 @@
         "mode": "runOnceForAllItems",
         "jsCode": "const e=$json||{}; const d=e.data&&typeof e.data==='object'&&!Array.isArray(e.data)?e.data:{}; const requestId=String(e.requestId||e.eventId||''); return [{json:{...d,requestId,eventId:requestId,eventType:String(e.eventType||''),source:String(e.source||'parent-workflow'),occurredAt:String(e.occurredAt||new Date().toISOString()),_flowforge:{requestId,eventType:String(e.eventType||''),source:String(e.source||'parent-workflow')}}}];"
       }
+    },
+    {
+      "id": "read-existing",
+      "name": "Read Existing Leads",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        950,
+        220
+      ],
+      "parameters": {
+        "operation": "getAll",
+        "documentId": {
+          "__rl": true,
+          "value": "REPLACE_WITH_SPREADSHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Leads",
+          "mode": "name"
+        },
+        "returnAll": true,
+        "options": {}
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "id": "dedupe",
+      "name": "Check Request ID or Email",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1180,
+        220
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const current=$('Validate and Normalize').first().json;const rows=$input.all().map(i=>i.json).filter(r=>r&&Object.keys(r).length);const prior=rows.find(r=>(current.requestId&&String(r.requestId||'').trim()===current.requestId)||(current.email&&String(r.email||'').trim().toLowerCase()===current.email));return [{json:{...current,duplicate:!!prior,existingRequestId:String(prior?.requestId||''),existingEmail:String(prior?.email||'')}}];"
+      }
+    },
+    {
+      "id": "is-duplicate",
+      "name": "Existing Lead?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1380,
+        220
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "duplicate",
+              "leftValue": "={{ $json.duplicate }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "duplicate-result",
+      "name": "Return Duplicate Lead Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1630,
+        410
+      ],
+      "parameters": {
+        "jsCode": "const e=$json;return [{json:{ok:true,status:'duplicate',httpStatus:200,requestId:e.requestId,lead:{name:e.name,email:e.email},sideEffectsSkipped:true,existingRequestId:e.existingRequestId}}];"
+      }
     }
   ],
   "connections": {
@@ -222,7 +311,7 @@
       "main": [
         [
           {
-            "node": "Save Lead to Google Sheets",
+            "node": "Read Existing Leads",
             "type": "main",
             "index": 0
           }
@@ -274,6 +363,46 @@
         [
           {
             "node": "Validate and Normalize",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Existing Leads": {
+      "main": [
+        [
+          {
+            "node": "Check Request ID or Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Request ID or Email": {
+      "main": [
+        [
+          {
+            "node": "Existing Lead?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Existing Lead?": {
+      "main": [
+        [
+          {
+            "node": "Return Duplicate Lead Result",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Save Lead to Google Sheets",
             "type": "main",
             "index": 0
           }
