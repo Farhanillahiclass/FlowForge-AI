@@ -179,9 +179,13 @@ def inspect_request_processor(path: Path, workflow_data: dict, fail):
         except json.JSONDecodeError as exc:
             fail(path.name, f"event route map is not parseable JSON: {exc}")
             route_map = {}
-    if route_map != EVENT_ROUTES:
-        missing = sorted(set(EVENT_ROUTES.items()) - set(route_map.items()))
-        extra = sorted(set(route_map.items()) - set(EVENT_ROUTES.items()))
+    expected_route_map = {
+        event_type: canonical_folder.split("-", 1)[1]
+        for event_type, canonical_folder in EVENT_ROUTES.items()
+    }
+    if route_map != expected_route_map:
+        missing = sorted(set(expected_route_map.items()) - set(route_map.items()))
+        extra = sorted(set(route_map.items()) - set(expected_route_map.items()))
         fail(path.name, f"event map mismatch; missing={missing}; extra={extra}")
 
     switch = by_id.get("route-switch")
@@ -190,7 +194,7 @@ def inspect_request_processor(path: Path, workflow_data: dict, fail):
     for rule in values:
         conditions = rule.get("conditions", {}).get("conditions", [])
         output_names.append(rule.get("outputKey") or (conditions[0].get("rightValue") if conditions else None))
-    expected_outputs = list(EVENT_ROUTES.values())
+    expected_outputs = list(expected_route_map.values())
     if output_names[:len(expected_outputs)] != expected_outputs:
         fail(path.name, "Route Event Type output order does not match the canonical event route map")
     if len(values) != len(EVENT_ROUTES):
@@ -200,17 +204,20 @@ def inspect_request_processor(path: Path, workflow_data: dict, fail):
     main_outputs = connections.get("Route Event Type", {}).get("main", [])
     if len(main_outputs) < len(EVENT_ROUTES) + 1:
         fail(path.name, "Route Event Type is missing one or more event outputs or fallback output")
-    for index, slug in enumerate(expected_outputs):
+    canonical_folders = list(EVENT_ROUTES.values())
+    for index, short_slug in enumerate(expected_outputs):
+        canonical_folder = canonical_folders[index]
+        expected_name = expected_names.get(canonical_folder)
         if index >= len(main_outputs) or not main_outputs[index]:
-            fail(path.name, f"route {slug} has no connected child")
+            fail(path.name, f"route {short_slug} has no connected child")
             continue
         edge = main_outputs[index][0]
         target = by_name.get(edge.get("node"))
         configured_name = (target or {}).get("parameters", {}).get("workflowId", {}).get("cachedResultName")
         if not target or target.get("type") != "n8n-nodes-base.executeWorkflow":
-            fail(path.name, f"route {slug} does not connect to an Execute Sub-workflow node")
-        elif configured_name != expected_names.get(slug):
-            fail(path.name, f"route {slug} targets {configured_name!r}, expected {expected_names.get(slug)!r}")
+            fail(path.name, f"route {short_slug} does not connect to an Execute Sub-workflow node")
+        elif configured_name != expected_name:
+            fail(path.name, f"route {short_slug} targets {configured_name!r}, expected {expected_name!r}")
 
     if len(main_outputs) > len(EVENT_ROUTES):
         fallback = main_outputs[len(EVENT_ROUTES)]
