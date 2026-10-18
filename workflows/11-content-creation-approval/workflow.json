@@ -28,7 +28,7 @@
       ],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const b=$json.body||$json;const brief=String(b.brief||'').trim();return [{json:{brief,platforms:Array.isArray(b.platforms)?b.platforms:['linkedin'],tone:b.tone||'professional',audience:b.audience||'general',valid:brief.length>=20,status:brief.length>=20?'draft-required':'needs-better-brief',humanApprovalRequired:true,submittedAt:new Date().toISOString()}}];"
+        "jsCode": "const b=$json.body||$json; const brief=String(b.brief||'').trim(); const requestId=String(b.requestId||b.eventId||'').trim(); return [{json:{requestId,brief,platforms:Array.isArray(b.platforms)?b.platforms:['linkedin'],tone:b.tone||'professional',audience:b.audience||'general',editorEmail:String(b.editorEmail||'REPLACE_WITH_EDITOR_EMAIL'),valid:brief.length>=20,status:brief.length>=20?'draft-required':'needs-better-brief',humanApprovalRequired:true,submittedAt:new Date().toISOString()}}];"
       }
     },
     {
@@ -67,41 +67,178 @@
     },
     {
       "id": "generate",
-      "name": "Connect LLM Node to Generate Draft",
-      "type": "n8n-nodes-base.noOp",
-      "typeVersion": 1,
+      "name": "Generate Content Draft with Anthropic",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
       "position": [
         950,
         200
       ],
-      "parameters": {}
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "anthropic-version",
+              "value": "2023-06-01"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ {model:'REPLACE_WITH_SUPPORTED_ANTHROPIC_MODEL',max_tokens:1400,messages:[{role:'user',content:'Create a concise professional draft from this brief. Return only the draft text. Audience: '+$('Validate Brief and Set Approval Gate').first().json.audience+'. Tone: '+$('Validate Brief and Set Approval Gate').first().json.tone+'. Platforms: '+$('Validate Brief and Set Approval Gate').first().json.platforms.join(', ')+'. Brief: '+$('Validate Brief and Set Approval Gate').first().json.brief}] } }}",
+        "options": {
+          "response": {
+            "responseFormat": "json"
+          }
+        }
+      }
     },
     {
       "id": "approve",
-      "name": "Store Draft and Request Human Approval via Slack/Telegram",
-      "type": "n8n-nodes-base.noOp",
-      "typeVersion": 1,
+      "name": "Save Draft and Email for Approval",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
       "position": [
         1200,
         200
       ],
-      "parameters": {}
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "REPLACE_WITH_CONTENT_SPREADSHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "ContentDrafts",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      }
     },
     {
       "id": "bad",
       "name": "Reject Short Brief",
-      "type": "n8n-nodes-base.respondToWebhook",
-      "typeVersion": 1.4,
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
       "position": [
         950,
         420
       ],
       "parameters": {
-        "respondWith": "json",
-        "responseBody": "{\"ok\":false,\"message\":\"Please provide a more detailed brief\"}",
-        "options": {
-          "responseCode": 400
+        "mode": "runOnceForAllItems",
+        "jsCode": "const d=$json||{}; return [{json:{...d,ok:false,status:'rejected',httpStatus:400,requestId:String(d.requestId||d.eventId||d._flowforge?.requestId||''),error:String(d.error||'invalid_input')}}];"
+      }
+    },
+    {
+      "id": "extract-draft",
+      "name": "Extract Generated Draft",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        830,
+        180
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const response=$json||{}; const base=$('Validate Brief and Set Approval Gate').first().json; const draft=String(response.content?.map(c=>c.text||'').join('\\n')||'').trim(); if(!draft) throw new Error('Anthropic returned an empty draft'); return [{json:{...base,draft,status:'pending-human-approval',humanApprovalRequired:true,draftGeneratedAt:new Date().toISOString()}}];"
+      }
+    },
+    {
+      "id": "approval-email",
+      "name": "Email Draft to Editor",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        1080,
+        180
+      ],
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "sendTo": "={{ $('Extract Generated Draft').first().json.editorEmail }}",
+        "subject": "Content draft awaiting approval",
+        "emailType": "text",
+        "message": "=Please review this draft before publishing.\\nRequest ID: {{ $('Extract Generated Draft').first().json.requestId }}\\nPlatforms: {{ $('Extract Generated Draft').first().json.platforms.join(', ') }}\\n\\n{{ $('Extract Generated Draft').first().json.draft }}\\n\\nTo proceed, submit this request again through the protected workflow with approved=true and the same requestId.",
+        "options": {}
+      }
+    },
+    {
+      "id": "draft-result",
+      "name": "Return Draft Status",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1320,
+        180
+      ],
+      "parameters": {
+        "jsCode": "const e=$('Extract Generated Draft').first().json; return [{json:{ok:true,status:'pending-human-approval',httpStatus:202,requestId:e.requestId,platforms:e.platforms,draft:e.draft,approvalRequired:true}}];"
+      }
+    },
+    {
+      "id": "subflow-trigger",
+      "name": "Called by Parent Workflow",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -650,
+        560
+      ],
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "requestId",
+              "type": "string"
+            },
+            {
+              "name": "eventType",
+              "type": "string"
+            },
+            {
+              "name": "source",
+              "type": "string"
+            },
+            {
+              "name": "occurredAt",
+              "type": "string"
+            },
+            {
+              "name": "data",
+              "type": "object"
+            }
+          ]
         }
+      }
+    },
+    {
+      "id": "subflow-adapter",
+      "name": "Normalize Parent Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -400,
+        560
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const e=$json||{}; const d=e.data&&typeof e.data==='object'&&!Array.isArray(e.data)?e.data:{}; const requestId=String(e.requestId||e.eventId||''); return [{json:{...d,requestId,eventId:requestId,eventType:String(e.eventType||''),source:String(e.source||'parent-workflow'),occurredAt:String(e.occurredAt||new Date().toISOString()),_flowforge:{requestId,eventType:String(e.eventType||''),source:String(e.source||'parent-workflow')}}}];"
       }
     }
   ],
@@ -132,7 +269,7 @@
       "main": [
         [
           {
-            "node": "Connect LLM Node to Generate Draft",
+            "node": "Generate Content Draft with Anthropic",
             "type": "main",
             "index": 0
           }
@@ -146,11 +283,66 @@
         ]
       ]
     },
-    "Connect LLM Node to Generate Draft": {
+    "Generate Content Draft with Anthropic": {
       "main": [
         [
           {
-            "node": "Store Draft and Request Human Approval via Slack/Telegram",
+            "node": "Extract Generated Draft",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Generated Draft": {
+      "main": [
+        [
+          {
+            "node": "Save Draft and Email for Approval",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Draft and Email for Approval": {
+      "main": [
+        [
+          {
+            "node": "Email Draft to Editor",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Email Draft to Editor": {
+      "main": [
+        [
+          {
+            "node": "Return Draft Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Called by Parent Workflow": {
+      "main": [
+        [
+          {
+            "node": "Normalize Parent Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Parent Payload": {
+      "main": [
+        [
+          {
+            "node": "Validate Brief and Set Approval Gate",
             "type": "main",
             "index": 0
           }
