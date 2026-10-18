@@ -14,7 +14,8 @@
         "httpMethod": "POST",
         "path": "faq-human-handoff",
         "responseMode": "lastNode",
-        "options": {}
+        "options": {},
+        "authentication": "headerAuth"
       }
     },
     {
