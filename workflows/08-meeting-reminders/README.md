@@ -1,44 +1,28 @@
-# 08 — Meeting Reminder Dispatcher
+# 08 — Meeting Reminders
 
-**Maintainer:** Muhammad Farhan
+**Maintainer:** Muhammad Farhan  
+**Event type:** `meeting.reminder.dispatch`  
+**Status:** Static-checked template; calendar/email execution not yet verified.
 
-## Business goal
-Schedule → upcoming events → reminder window → dedupe → notify → log.
+## Purpose
 
-## Required credentials and configuration
-Google Calendar OAuth, Gmail/Telegram, persistent reminder log.
+Every 15 minutes, inspect Google Calendar events and send an email to the first attendee with an email address when the event begins within the next 60 minutes. A `ReminderLog` sheet stores reminder keys to reduce duplicate sends across normal runs.
 
-- Import [`workflow.json`](./workflow.json) into a **test** n8n instance and confirm node compatibility with your installed version.
-- Configure OAuth/API credentials inside n8n Credentials. Never commit tokens or passwords.
-- Replace sample IDs, recipients, calendars, URLs, time zones and business rules.
-- Replace every `Configure`, `Connect`, or `No Operation` placeholder with a real action before expecting external side effects.
-- Keep the workflow inactive while testing with synthetic data and accounts you control.
+## Workflow path
 
-## Implementation checklist
-1. Confirm the trigger and required input schema.
-2. Validate required fields and return clear errors for bad input.
-3. Apply business rules, consent, SLA, and approval requirements.
-4. Persist output and a stable business-event ID.
-5. Connect actual external actions and verify destination-side results.
-6. Add bounded retries/backoff for transient errors and sanitized alerts.
-7. Add durable idempotency so retries do not duplicate side effects.
+`15-minute Schedule / parent entry → read upcoming Calendar events → select 0–60 minute window → read ReminderLog → exclude logged keys → Gmail reminder → append log row`
 
-## Test checklist
-Test reminder-window boundaries and repeated runs; store event ID plus reminder type to avoid duplicates.
+## Configuration
 
-- [ ] Valid input produces the expected output.
-- [ ] Missing/malformed input is rejected safely.
-- [ ] Duplicate event is checked within one run and across separate runs.
-- [ ] Provider timeout/permission errors are visible; there is no false success.
-- [ ] Logs and alerts contain no secrets or unnecessary customer data.
+Select Google Calendar, Google Sheets and Gmail credentials. Replace `REPLACE_WITH_CALENDAR_ID` and `REPLACE_WITH_REMINDER_LOG_SPREADSHEET_ID`. Create a `ReminderLog` tab with `reminderKey`, `eventId`, `recipient`, `summary` and `sentAt` columns.
 
-## Files in this folder
-- [`workflow.json`](./workflow.json) — n8n workflow export.
-- [`Code.gs`](./Code.gs) — optional Google Sheets Apps Script adapter; use only when the workflow needs it.
+## Tests to run
 
-For Apps Script use, create a separate test spreadsheet/project, set Script Properties `SPREADSHEET_ID` and `FLOWFORGE_TOKEN`, run `setupSheet()`, deploy with an approved access policy, and test success, invalid token, malformed JSON, missing/duplicate request ID, and permission failure.
+Test an event more than 60 minutes away, an event in the reminder window, cancelled/malformed events, no attendee email, an already logged reminder key, Gmail failure, and Sheet logging failure. Confirm the event's timezone and start field shape in your calendar export.
 
-## Status and limitations
-This file is a workflow template, not proof of a live end-to-end test. JSON/static checks do not prove n8n import compatibility, valid provider parameters, credentials, or successful API calls. Import and test the workflow, record the n8n version and execution evidence, and only then call it production-ready.
+## Limits
 
-See [shared credentials guidance](../CREDENTIALS-GUIDE.md) and [testing report](../../TESTING-AND-VALIDATION.md).
+The log uses a read-before-send/read-before-append pattern; overlapping runs can race. A successful email followed by a failed log can lead to a repeat on a later run. It currently sends only to the first attendee with an email, not all attendees, and it does not yet issue recovery/change alerts.
+
+Files: [workflow.json](./workflow.json) · [Code.gs](./Code.gs)  
+Shared guides: [credentials](../CREDENTIALS-GUIDE.md) · [testing](../../TESTING-AND-VALIDATION.md)
