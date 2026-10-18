@@ -14,7 +14,8 @@
         "httpMethod": "POST",
         "path": "newsletter-campaign",
         "responseMode": "lastNode",
-        "options": {}
+        "options": {},
+        "authentication": "headerAuth"
       }
     },
     {
