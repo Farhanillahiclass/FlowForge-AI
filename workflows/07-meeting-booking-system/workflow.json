@@ -14,7 +14,8 @@
         "httpMethod": "POST",
         "path": "meeting-booking",
         "responseMode": "lastNode",
-        "options": {}
+        "options": {},
+        "authentication": "headerAuth"
       }
     },
     {
