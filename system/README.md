@@ -28,6 +28,8 @@ Unattended execution error --> 90 Central Error Handler
 6. Select the required Google Sheets, Gmail, Calendar, Anthropic, Meta, YouTube and Telegram credentials on each applicable node. Replace IDs, sheet names, recipients, Graph API version and other placeholders in n8n.
 7. Test the full parent call and every route in a test workspace before activation.
 
+See [Parent–Child Orchestration and End-to-End Completion](./PARENT-CHILD-ORCHESTRATION.md) for the full route matrix, shared contract, n8n Cloud 2.x setup order, and acceptance criteria.
+
 ## Shared request envelope
 
 ```json
