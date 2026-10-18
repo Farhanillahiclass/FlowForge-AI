@@ -1,44 +1,47 @@
 # 01 — Lead Capture & CRM
 
-**Maintainer:** Muhammad Farhan
+**Maintainer:** Muhammad Farhan  
+**Event type:** `lead.created`  
+**Status:** Static-checked template; live provider execution not yet verified.
 
-## Business goal
-Webhook → validate → Google Sheets lead register → Gmail sales notification.
+## Purpose
 
-## Required credentials and configuration
-Google Sheets OAuth, Gmail OAuth, spreadsheet ID, Leads tab, sales recipient.
+Accept a lead, validate its stable request ID, name and email, check the existing Leads sheet for a matching request ID or email, save a new lead, then notify Sales by Gmail.
 
-- Import [`workflow.json`](./workflow.json) into a **test** n8n instance and confirm node compatibility with your installed version.
-- Configure OAuth/API credentials inside n8n Credentials. Never commit tokens or passwords.
-- Replace sample IDs, recipients, calendars, URLs, time zones and business rules.
-- Replace every `Configure`, `Connect`, or `No Operation` placeholder with a real action before expecting external side effects.
-- Keep the workflow inactive while testing with synthetic data and accounts you control.
+## Workflow path
 
-## Implementation checklist
-1. Confirm the trigger and required input schema.
-2. Validate required fields and return clear errors for bad input.
-3. Apply business rules, consent, SLA, and approval requirements.
-4. Persist output and a stable business-event ID.
-5. Connect actual external actions and verify destination-side results.
-6. Add bounded retries/backoff for transient errors and sanitized alerts.
-7. Add durable idempotency so retries do not duplicate side effects.
+`Header Auth Webhook → Normalize/validate → Read existing Leads → Duplicate check → Google Sheets append → Gmail alert → structured result`
 
-## Test checklist
-Test valid/invalid lead, row append, email delivery and duplicate requests. Add persistent idempotency before production.
+The shared parent entry point `Called by Parent Workflow` accepts the FlowForge request envelope and routes through the same validation/action path.
 
-- [ ] Valid input produces the expected output.
-- [ ] Missing/malformed input is rejected safely.
-- [ ] Duplicate event is checked within one run and across separate runs.
-- [ ] Provider timeout/permission errors are visible; there is no false success.
-- [ ] Logs and alerts contain no secrets or unnecessary customer data.
+## Input contract
 
-## Files in this folder
-- [`workflow.json`](./workflow.json) — n8n workflow export.
-- [`Code.gs`](./Code.gs) — optional Google Sheets Apps Script adapter; use only when the workflow needs it.
+Send a POST to the `lead-capture-crm` Webhook path with Header Auth:
 
-For Apps Script use, create a separate test spreadsheet/project, set Script Properties `SPREADSHEET_ID` and `FLOWFORGE_TOKEN`, run `setupSheet()`, deploy with an approved access policy, and test success, invalid token, malformed JSON, missing/duplicate request ID, and permission failure.
+```json
+{
+  "requestId": "lead-2026-001",
+  "name": "Test User",
+  "email": "test@example.com",
+  "company": "Example Ltd",
+  "source": "website",
+  "message": "Interested in a demo"
+}
+```
 
-## Status and limitations
-This file is a workflow template, not proof of a live end-to-end test. JSON/static checks do not prove n8n import compatibility, valid provider parameters, credentials, or successful API calls. Import and test the workflow, record the n8n version and execution evidence, and only then call it production-ready.
+When called through Main Ingress, wrap the business fields under `data` and set `eventType: "lead.created"`.
 
-See [shared credentials guidance](../CREDENTIALS-GUIDE.md) and [testing report](../../TESTING-AND-VALIDATION.md).
+## Configuration
+
+Select Google Sheets and Gmail OAuth credentials in n8n. Replace `REPLACE_WITH_SPREADSHEET_ID` and `REPLACE_WITH_SALES_EMAIL`. The spreadsheet must contain a `Leads` tab with columns matching the node mapping, including `requestId` and `email`.
+
+## Tests to run
+
+Test a valid lead, missing name, invalid email, repeated `requestId`, a different request using the same email, a Sheets permission failure, and a Gmail failure. Confirm both the execution output and the actual sheet/email outcome.
+
+## Limits
+
+The duplicate check reads the sheet before appending; simultaneous requests can race. For higher-volume or critical intake, use a database unique constraint or provider idempotency support. Do not describe this as strict exactly-once delivery.
+
+Files: [workflow.json](./workflow.json) · [Code.gs](./Code.gs)  
+Shared guides: [credentials](../CREDENTIALS-GUIDE.md) · [testing](../../TESTING-AND-VALIDATION.md)

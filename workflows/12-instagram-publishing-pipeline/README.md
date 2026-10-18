@@ -1,44 +1,32 @@
 # 12 — Instagram Publishing Pipeline
 
-**Maintainer:** Muhammad Farhan
+**Maintainer:** Muhammad Farhan  
+**Event type:** `instagram.publish.requested`  
+**Status:** Static-checked template; Meta Graph API execution not yet verified.
 
-## Business goal
-Draft → validate media/caption → approval → Meta container → poll → publish → log.
+## Purpose
 
-## Required credentials and configuration
-Eligible Instagram professional account, Meta app/API permissions and public HTTPS media URL.
+Validate a caption and a public HTTPS media URL, require an explicit `approved: true` value, create a Meta media container, wait briefly, and request publication.
 
-- Import [`workflow.json`](./workflow.json) into a **test** n8n instance and confirm node compatibility with your installed version.
-- Configure OAuth/API credentials inside n8n Credentials. Never commit tokens or passwords.
-- Replace sample IDs, recipients, URLs and business rules.
-- Replace every `Configure`, `Connect`, or `No Operation` placeholder with a real action before expecting external side effects.
-- Keep the workflow inactive while testing with synthetic data and accounts you control.
+## Input contract
 
-## Implementation checklist
-1. Confirm the trigger and required input schema.
-2. Validate required fields and return clear errors for bad input.
-3. Apply business rules, consent, approval and platform requirements.
-4. Persist output and a stable business-event ID.
-5. Connect actual external actions and verify destination-side results.
-6. Add bounded retries/backoff for transient errors and sanitized alerts.
-7. Add durable idempotency so retries do not duplicate side effects.
+Required: stable `requestId`, non-empty `caption`, and accessible `imageUrl` beginning with HTTPS. A publishing attempt occurs only when the caller includes Boolean `approved: true`; otherwise the workflow returns `pending-approval`.
 
-## Test checklist
-Validation alone is not publishing. Configure actual Meta API nodes; test permission, media-processing and rate-limit failures.
+## Workflow path
 
-- [ ] Valid input produces the expected output.
-- [ ] Missing/malformed input is rejected safely.
-- [ ] Duplicate event is checked within one run and across separate runs.
-- [ ] Provider timeout/permission errors are visible; there is no false success.
-- [ ] Logs and alerts contain no secrets or unnecessary customer data.
+`Header Auth Webhook / parent entry → validate → approved? → Meta media container → wait 10 seconds → media publish`
 
-## Files in this folder
-- [`workflow.json`](./workflow.json) — n8n workflow export.
-- [`Code.gs`](./Code.gs) — optional Google Sheets Apps Script adapter; use only when the workflow needs it.
+## Configuration
 
-For Apps Script use, create a separate test spreadsheet/project, set Script Properties `SPREADSHEET_ID` and `FLOWFORGE_TOKEN`, run `setupSheet()`, deploy with an approved access policy, and test success, invalid token, malformed JSON, missing/duplicate request ID, and permission failure.
+Replace `REPLACE_WITH_GRAPH_API_VERSION` and `REPLACE_WITH_IG_USER_ID`. Set an n8n Header Auth credential for the Meta access token and select it in both HTTP Request nodes. The connected Instagram account must be eligible for publishing and have required Meta permissions. The media URL must be reachable by Meta.
 
-## Status and limitations
-This file is a workflow template, not proof of a live end-to-end test. JSON/static checks do not prove n8n import compatibility, valid provider parameters, credentials, or successful API calls. Import and test the workflow, record the n8n version and execution evidence, and only then call it production-ready.
+## Tests to run
 
-See [shared credentials guidance](../CREDENTIALS-GUIDE.md) and [testing report](../../TESTING-AND-VALIDATION.md).
+Use an internal test account and non-sensitive media. Test missing caption, HTTP URL, inaccessible media, `approved: false`, token/permission failure, container creation error, media still processing, and publish failure. Confirm the post appears in the intended Instagram account.
+
+## Safety and limits
+
+The `approved` Boolean is a **caller-supplied gate**, not proof of a separate reviewer identity or a persisted approval record. Only trusted authenticated callers should be allowed to submit approved publishing requests. The current wait is fixed at 10 seconds; it does not poll container status or reliably handle every processing delay. Add status polling, retry limits, a publish ledger and reconciliation before production use.
+
+Files: [workflow.json](./workflow.json) · [Code.gs](./Code.gs)  
+Shared guides: [credentials](../CREDENTIALS-GUIDE.md) · [testing](../../TESTING-AND-VALIDATION.md)

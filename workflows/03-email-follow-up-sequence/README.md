@@ -1,44 +1,34 @@
 # 03 — Email Follow-up Sequence
 
-**Maintainer:** Muhammad Farhan
+**Maintainer:** Muhammad Farhan  
+**Event type:** `email.followup.dispatch`  
+**Status:** Static-checked template; live provider execution not yet verified.
 
-## Business goal
-Schedule → read consented CRM → find due follow-ups → send approved email → update state.
+## Purpose
 
-## Required credentials and configuration
-Sheets/CRM read-update, Gmail or approved email service, unsubscribe suppression source and timezone.
+Run a daily due-contact scan, exclude opted-out or unsubscribed contacts, send follow-up emails, then persist the follow-up count and next due time. The same workflow can be called by the parent dispatcher to run the scan on demand.
 
-- Import [`workflow.json`](./workflow.json) into a **test** n8n instance and confirm node compatibility with your installed version.
-- Configure OAuth/API credentials inside n8n Credentials. Never commit tokens or passwords.
-- Replace sample IDs, recipients, calendars, URLs, time zones and business rules.
-- Replace every `Configure`, `Connect`, or `No Operation` placeholder with a real action before expecting external side effects.
-- Keep the workflow inactive while testing with synthetic data and accounts you control.
+## Required FollowUps sheet fields
 
-## Implementation checklist
-1. Confirm the trigger and required input schema.
-2. Validate required fields and return clear errors for bad input.
-3. Apply business rules, consent, SLA, and approval requirements.
-4. Persist output and a stable business-event ID.
-5. Connect actual external actions and verify destination-side results.
-6. Add bounded retries/backoff for transient errors and sanitized alerts.
-7. Add durable idempotency so retries do not duplicate side effects.
+Use a `FollowUps` tab with at least `email`, `consent`, `optedOut` or `unsubscribed`, `nextFollowUpAt`, and `followUpCount`. Add `name`, `followUpSubject`, `followUpBody`, and `status` where useful. Create matching headers for the state update fields `lastFollowUpAt` and `nextFollowUpAt`.
 
-## Test checklist
-Test opt-out, bounce, duplicate schedule run, send cap and update failure. Never message without appropriate consent/legal basis.
+A row is eligible when the email is valid, consent is true, the contact is not opted out/unsubscribed, `nextFollowUpAt` is due, and `followUpCount` is below 3. After a successful Gmail send, the workflow increments the count and schedules the next follow-up 72 hours later.
 
-- [ ] Valid input produces the expected output.
-- [ ] Missing/malformed input is rejected safely.
-- [ ] Duplicate event is checked within one run and across separate runs.
-- [ ] Provider timeout/permission errors are visible; there is no false success.
-- [ ] Logs and alerts contain no secrets or unnecessary customer data.
+## Workflow path
 
-## Files in this folder
-- [`workflow.json`](./workflow.json) — n8n workflow export.
-- [`Code.gs`](./Code.gs) — optional Google Sheets Apps Script adapter; use only when the workflow needs it.
+`Schedule (daily) → Read FollowUps → consent/due/count filter → Gmail send → update row`
 
-For Apps Script use, create a separate test spreadsheet/project, set Script Properties `SPREADSHEET_ID` and `FLOWFORGE_TOKEN`, run `setupSheet()`, deploy with an approved access policy, and test success, invalid token, malformed JSON, missing/duplicate request ID, and permission failure.
+## Configuration
 
-## Status and limitations
-This file is a workflow template, not proof of a live end-to-end test. JSON/static checks do not prove n8n import compatibility, valid provider parameters, credentials, or successful API calls. Import and test the workflow, record the n8n version and execution evidence, and only then call it production-ready.
+Select Google Sheets and Gmail OAuth credentials. Replace `REPLACE_WITH_FOLLOWUPS_SPREADSHEET_ID`. Test with internal addresses first and ensure the fields/column headers match the node mappings.
 
-See [shared credentials guidance](../CREDENTIALS-GUIDE.md) and [testing report](../../TESTING-AND-VALIDATION.md).
+## Tests to run
+
+Test an eligible row, future-due contact, invalid email, missing consent, opted-out contact, contact at the reminder limit, repeated schedule run, and provider failure. Verify the sheet state changes only after the send step succeeds.
+
+## Limits
+
+The sent-email operation and sheet update are separate actions. If Gmail sends but the state update fails, the next run could resend; a read-before-write sheet check is not a transaction. Add reconciliation or a durable outbox/idempotency key before production. This starter does not implement an automated unsubscribe mailbox processor.
+
+Files: [workflow.json](./workflow.json) · [Code.gs](./Code.gs)  
+Shared guides: [credentials](../CREDENTIALS-GUIDE.md) · [testing](../../TESTING-AND-VALIDATION.md)

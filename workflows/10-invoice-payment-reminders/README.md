@@ -1,44 +1,32 @@
 # 10 — Invoice & Payment Reminders
 
-**Maintainer:** Muhammad Farhan
+**Maintainer:** Muhammad Farhan  
+**Event type:** `invoice.reminder.dispatch`  
+**Status:** Static-checked template; billing email/Sheets execution not yet verified.
 
-## Business goal
-Schedule → invoices → unpaid/overdue check → suppression → reminder → log attempts.
+## Purpose
 
-## Required credentials and configuration
-Invoice source, Gmail/email service, writable reminder-count/status fields.
+Run a daily scan of an invoice register, select overdue unpaid invoices under the reminder cap, email the billing contact, and update the reminder count/state after the send step.
 
-- Import [`workflow.json`](./workflow.json) into a **test** n8n instance and confirm node compatibility with your installed version.
-- Configure OAuth/API credentials inside n8n Credentials. Never commit tokens or passwords.
-- Replace sample IDs, recipients, calendars, URLs, time zones and business rules.
-- Replace every `Configure`, `Connect`, or `No Operation` placeholder with a real action before expecting external side effects.
-- Keep the workflow inactive while testing with synthetic data and accounts you control.
+## Required Invoices sheet fields
 
-## Implementation checklist
-1. Confirm the trigger and required input schema.
-2. Validate required fields and return clear errors for bad input.
-3. Apply business rules, consent, SLA, and approval requirements.
-4. Persist output and a stable business-event ID.
-5. Connect actual external actions and verify destination-side results.
-6. Add bounded retries/backoff for transient errors and sanitized alerts.
-7. Add durable idempotency so retries do not duplicate side effects.
+Create an `Invoices` tab with `invoiceId` (or `id`), `dueDate`, `status`, `reminderCount`, `email` or `billingEmail`, and optionally `invoiceNumber`. The current filter requires `status = unpaid`, a parseable due date in the past, a reminder count below 3, and a valid recipient email.
 
-## Test checklist
-Test paid-invoice suppression, overdue thresholds, reminder caps and failed-send behavior using synthetic invoices.
+## Workflow path
 
-- [ ] Valid input produces the expected output.
-- [ ] Missing/malformed input is rejected safely.
-- [ ] Duplicate event is checked within one run and across separate runs.
-- [ ] Provider timeout/permission errors are visible; there is no false success.
-- [ ] Logs and alerts contain no secrets or unnecessary customer data.
+`Daily Schedule / parent entry → read invoice register → overdue/cap/recipient filter → Gmail reminder → update invoice reminder count and lastReminderAt`
 
-## Files in this folder
-- [`workflow.json`](./workflow.json) — n8n workflow export.
-- [`Code.gs`](./Code.gs) — optional Google Sheets Apps Script adapter; use only when the workflow needs it.
+## Configuration
 
-For Apps Script use, create a separate test spreadsheet/project, set Script Properties `SPREADSHEET_ID` and `FLOWFORGE_TOKEN`, run `setupSheet()`, deploy with an approved access policy, and test success, invalid token, malformed JSON, missing/duplicate request ID, and permission failure.
+Select Google Sheets and Gmail OAuth credentials. Replace `REPLACE_WITH_INVOICE_SPREADSHEET_ID`. Ensure the update node's match column `invoiceId` exists and is unique.
 
-## Status and limitations
-This file is a workflow template, not proof of a live end-to-end test. JSON/static checks do not prove n8n import compatibility, valid provider parameters, credentials, or successful API calls. Import and test the workflow, record the n8n version and execution evidence, and only then call it production-ready.
+## Tests to run
 
-See [shared credentials guidance](../CREDENTIALS-GUIDE.md) and [testing report](../../TESTING-AND-VALIDATION.md).
+Test paid invoice, future due date, overdue unpaid invoice, invalid email, reminder cap reached, missing invoice ID, Gmail failure, and Sheets update failure. Verify the invoice count/date only changes after a successful send step.
+
+## Limits and safeguards
+
+This workflow may send a message that has legal/financial significance. Confirm that the invoice is genuinely overdue, the recipient is correct, reminder caps and local time rules match your policy, and a human has approved the message templates. A send followed by failed logging can cause a repeated email; the Sheet read/update process is not transactional. It does not check whether a payment was received in an external accounting system before sending.
+
+Files: [workflow.json](./workflow.json) · [Code.gs](./Code.gs)  
+Shared guides: [credentials](../CREDENTIALS-GUIDE.md) · [testing](../../TESTING-AND-VALIDATION.md)

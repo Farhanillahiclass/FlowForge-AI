@@ -1,44 +1,32 @@
 # 11 — Content Creation & Approval
 
-**Maintainer:** Muhammad Farhan
+**Maintainer:** Muhammad Farhan  
+**Event type:** `content.draft.requested`  
+**Status:** Static-checked template; Anthropic/Sheets/Gmail execution not yet verified.
 
-## Business goal
-Brief → validate → LLM draft → save → human approval → publishing queue.
+## Purpose
 
-## Required credentials and configuration
-LLM credential, draft store, Slack/Telegram approval.
+Send a writing brief to Anthropic, extract a draft, save it in the `ContentDrafts` sheet, and email the draft to an editor for human review. This workflow drafts content; it does not publish it.
 
-- Import [`workflow.json`](./workflow.json) into a **test** n8n instance and confirm node compatibility with your installed version.
-- Configure OAuth/API credentials inside n8n Credentials. Never commit tokens or passwords.
-- Replace sample IDs, recipients, URLs and business rules.
-- Replace every `Configure`, `Connect`, or `No Operation` placeholder with a real action before expecting external side effects.
-- Keep the workflow inactive while testing with synthetic data and accounts you control.
+## Input contract
 
-## Implementation checklist
-1. Confirm the trigger and required input schema.
-2. Validate required fields and return clear errors for bad input.
-3. Apply business rules, consent, approval and platform requirements.
-4. Persist output and a stable business-event ID.
-5. Connect actual external actions and verify destination-side results.
-6. Add bounded retries/backoff for transient errors and sanitized alerts.
-7. Add durable idempotency so retries do not duplicate side effects.
+Required: a stable `requestId` and a `brief` with at least 20 characters. Optional: `platforms` array, `tone`, `audience`, and `editorEmail`. Direct Webhook requests require Header Auth; parent calls use `eventType: "content.draft.requested"`.
 
-## Test checklist
-Connect the real LLM and approval wait/resume steps. Test rejected drafts and prompt-injection content; never auto-publish unapproved drafts.
+## Workflow path
 
-- [ ] Valid input produces the expected output.
-- [ ] Missing/malformed input is rejected safely.
-- [ ] Duplicate event is checked within one run and across separate runs.
-- [ ] Provider timeout/permission errors are visible; there is no false success.
-- [ ] Logs and alerts contain no secrets or unnecessary customer data.
+`Webhook/parent entry → validate brief → Anthropic Messages API → extract draft → Google Sheets append → Gmail editor review → pending-approval result`
 
-## Files in this folder
-- [`workflow.json`](./workflow.json) — n8n workflow export.
-- [`Code.gs`](./Code.gs) — optional Google Sheets Apps Script adapter; use only when the workflow needs it.
+## Configuration
 
-For Apps Script use, create a separate test spreadsheet/project, set Script Properties `SPREADSHEET_ID` and `FLOWFORGE_TOKEN`, run `setupSheet()`, deploy with an approved access policy, and test success, invalid token, malformed JSON, missing/duplicate request ID, and permission failure.
+Create a Header Auth credential for the Anthropic API that supplies `x-api-key`; set the `anthropic-version` header and a model name supported by your account. Replace `REPLACE_WITH_SUPPORTED_ANTHROPIC_MODEL`, `REPLACE_WITH_CONTENT_SPREADSHEET_ID`, and `REPLACE_WITH_EDITOR_EMAIL`. Select Google Sheets and Gmail credentials.
 
-## Status and limitations
-This file is a workflow template, not proof of a live end-to-end test. JSON/static checks do not prove n8n import compatibility, valid provider parameters, credentials, or successful API calls. Import and test the workflow, record the n8n version and execution evidence, and only then call it production-ready.
+## Tests to run
 
-See [shared credentials guidance](../CREDENTIALS-GUIDE.md) and [testing report](../../TESTING-AND-VALIDATION.md).
+Test a brief under 20 characters, a valid brief, provider authentication failure, model/HTTP error, empty model response, Sheets failure and editor-email failure. Review the actual saved draft rather than assuming a successful HTTP call means the text is acceptable.
+
+## Limits
+
+The editor email is a notification, not a persistent approval callback. It does not wait for a reviewer or publish by itself. After human review, send approved content to a platform-specific workflow through its own authenticated input and explicit approval flag. Do not send model-generated claims externally without human fact-checking.
+
+Files: [workflow.json](./workflow.json) · [Code.gs](./Code.gs)  
+Shared guides: [credentials](../CREDENTIALS-GUIDE.md) · [testing](../../TESTING-AND-VALIDATION.md)

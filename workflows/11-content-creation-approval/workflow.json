@@ -175,7 +175,7 @@
         "sendTo": "={{ $('Extract Generated Draft').first().json.editorEmail }}",
         "subject": "Content draft awaiting approval",
         "emailType": "text",
-        "message": "=Please review this draft before publishing.\\nRequest ID: {{ $('Extract Generated Draft').first().json.requestId }}\\nPlatforms: {{ $('Extract Generated Draft').first().json.platforms.join(', ') }}\\n\\n{{ $('Extract Generated Draft').first().json.draft }}\\n\\nTo proceed, submit this request again through the protected workflow with approved=true and the same requestId.",
+        "message": "=Please review this draft before publishing.\\nRequest ID: {{ $('Extract Generated Draft').first().json.requestId }}\\nPlatforms: {{ $('Extract Generated Draft').first().json.platforms.join(', ') }}\\n\\n{{ $('Extract Generated Draft').first().json.draft }}\\n\\nAfter human review, send approved content to the appropriate platform-specific publishing workflow through its protected entry point. This draft workflow does not itself resume after approval.",
         "options": {}
       }
     },

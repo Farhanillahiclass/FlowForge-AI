@@ -1,44 +1,32 @@
-# 17 — Feedback & Escalation
+# 17 — Customer Feedback & Escalation
 
-**Maintainer:** Muhammad Farhan
+**Maintainer:** Muhammad Farhan  
+**Event type:** `feedback.received`  
+**Status:** Static-checked template; live Sheets/Gmail execution not yet verified.
 
-## Business goal
-Feedback → validate rating → store → low-score branch → private alert → follow-up.
+## Purpose
 
-## Required credentials and configuration
-Sheets/CRM and Slack/Telegram; optional Gmail.
+Validate a feedback item, log it in Google Sheets, and notify support when the rating is 1 or 2 out of 5. Other valid ratings are recorded without the urgent alert path.
 
-- Import [`workflow.json`](./workflow.json) into a **test** n8n instance and confirm node compatibility with your installed version.
-- Configure OAuth/API credentials inside n8n Credentials. Never commit tokens or passwords.
-- Replace sample IDs, recipients, URLs and business rules.
-- Replace every `Configure`, `Connect`, or `No Operation` placeholder with a real action before expecting external side effects.
-- Keep the workflow inactive while testing with synthetic data and accounts you control.
+## Input contract
 
-## Implementation checklist
-1. Confirm the trigger and required input schema.
-2. Validate required fields and return clear errors for bad input.
-3. Apply business rules, consent, approval and platform requirements.
-4. Persist output and a stable business-event ID.
-5. Connect actual external actions and verify destination-side results.
-6. Add bounded retries/backoff for transient errors and sanitized alerts.
-7. Add durable idempotency so retries do not duplicate side effects.
+Required: stable `requestId`, feedback text, and numeric `rating` from 1 through 5. Optional: `name` and `email`.
 
-## Test checklist
-Test ratings 1–5, invalid values, private routing and data retention.
+## Workflow path
 
-- [ ] Valid input produces the expected output.
-- [ ] Missing/malformed input is rejected safely.
-- [ ] Duplicate event is checked within one run and across separate runs.
-- [ ] Provider timeout/permission errors are visible; there is no false success.
-- [ ] Logs and alerts contain no secrets or unnecessary customer data.
+`Header Auth Webhook / parent entry → validate rating/feedback → valid? → Low Rating? → append Feedback row → Gmail support alert for 1–2 rating → structured result`
 
-## Files in this folder
-- [`workflow.json`](./workflow.json) — n8n workflow export.
-- [`Code.gs`](./Code.gs) — optional Google Sheets Apps Script adapter; use only when the workflow needs it.
+## Configuration
 
-For Apps Script use, create a separate test spreadsheet/project, set Script Properties `SPREADSHEET_ID` and `FLOWFORGE_TOKEN`, run `setupSheet()`, deploy with an approved access policy, and test success, invalid token, malformed JSON, missing/duplicate request ID, and permission failure.
+Select Google Sheets and Gmail OAuth credentials. Replace `REPLACE_WITH_FEEDBACK_SPREADSHEET_ID` and `REPLACE_WITH_SUPPORT_EMAIL`. Create a `Feedback` tab with columns for request ID, name, email, rating, feedback, route and received time.
 
-## Status and limitations
-This file is a workflow template, not proof of a live end-to-end test. JSON/static checks do not prove n8n import compatibility, valid provider parameters, credentials, or successful API calls. Import and test the workflow, record the n8n version and execution evidence, and only then call it production-ready.
+## Tests to run
 
-See [shared credentials guidance](../CREDENTIALS-GUIDE.md) and [testing report](../../TESTING-AND-VALIDATION.md).
+Test ratings 1, 2, 3 and 5, missing feedback, invalid rating, duplicate request ID, sheet failure, and support alert failure. Verify that the correct route runs and that the log row exists.
+
+## Limits
+
+Low-rating alerts are attempts, not proof that a human has read or resolved the case. This workflow does not yet deduplicate feedback by `requestId`, assign case owners or track resolution SLAs. Add a unique event key and case status transitions if it becomes a production customer-experience system.
+
+Files: [workflow.json](./workflow.json) · [Code.gs](./Code.gs)  
+Shared guides: [credentials](../CREDENTIALS-GUIDE.md) · [testing](../../TESTING-AND-VALIDATION.md)

@@ -1,44 +1,32 @@
-# 14 — Content Repurposing
+# 14 — Multi-platform Content Repurposing
 
-**Maintainer:** Muhammad Farhan
+**Maintainer:** Muhammad Farhan  
+**Event type:** `content.repurpose.requested`  
+**Status:** Static-checked template; Anthropic/Sheets/Gmail execution not yet verified.
 
-## Business goal
-Source → LLM platform drafts → save versions → human review → platform queues.
+## Purpose
 
-## Required credentials and configuration
-LLM credential, draft storage, Slack/Telegram approval and optional platform APIs.
+Send a source text and selected platform targets to Anthropic, extract platform-specific draft copy, store the draft package in Google Sheets, and email it to an editor for human review.
 
-- Import [`workflow.json`](./workflow.json) into a **test** n8n instance and confirm node compatibility with your installed version.
-- Configure OAuth/API credentials inside n8n Credentials. Never commit tokens or passwords.
-- Replace sample IDs, recipients, URLs and business rules.
-- Replace every `Configure`, `Connect`, or `No Operation` placeholder with a real action before expecting external side effects.
-- Keep the workflow inactive while testing with synthetic data and accounts you control.
+## Input contract
 
-## Implementation checklist
-1. Confirm the trigger and required input schema.
-2. Validate required fields and return clear errors for bad input.
-3. Apply business rules, consent, approval and platform requirements.
-4. Persist output and a stable business-event ID.
-5. Connect actual external actions and verify destination-side results.
-6. Add bounded retries/backoff for transient errors and sanitized alerts.
-7. Add durable idempotency so retries do not duplicate side effects.
+Required: stable `requestId` and `sourceText` of at least 50 characters. Optional: `targets` array (defaults to LinkedIn, Instagram and YouTube), `tone`, and `editorEmail`.
 
-## Test checklist
-Verify factual accuracy, copyright and platform limits; keep each publishing integration behind approval.
+## Workflow path
 
-- [ ] Valid input produces the expected output.
-- [ ] Missing/malformed input is rejected safely.
-- [ ] Duplicate event is checked within one run and across separate runs.
-- [ ] Provider timeout/permission errors are visible; there is no false success.
-- [ ] Logs and alerts contain no secrets or unnecessary customer data.
+`Header Auth Webhook / parent entry → validate source → Anthropic Messages API → extract drafts → Google Sheets append → Gmail editor review → pending-approval result`
 
-## Files in this folder
-- [`workflow.json`](./workflow.json) — n8n workflow export.
-- [`Code.gs`](./Code.gs) — optional Google Sheets Apps Script adapter; use only when the workflow needs it.
+## Configuration
 
-For Apps Script use, create a separate test spreadsheet/project, set Script Properties `SPREADSHEET_ID` and `FLOWFORGE_TOKEN`, run `setupSheet()`, deploy with an approved access policy, and test success, invalid token, malformed JSON, missing/duplicate request ID, and permission failure.
+Select Google Sheets and Gmail credentials. Configure an Anthropic Header Auth credential supplying `x-api-key`, set the version header, and replace `REPLACE_WITH_SUPPORTED_ANTHROPIC_MODEL`, `REPLACE_WITH_CONTENT_SPREADSHEET_ID`, and `REPLACE_WITH_EDITOR_EMAIL`.
 
-## Status and limitations
-This file is a workflow template, not proof of a live end-to-end test. JSON/static checks do not prove n8n import compatibility, valid provider parameters, credentials, or successful API calls. Import and test the workflow, record the n8n version and execution evidence, and only then call it production-ready.
+## Tests to run
 
-See [shared credentials guidance](../CREDENTIALS-GUIDE.md) and [testing report](../../TESTING-AND-VALIDATION.md).
+Test source text under 50 characters, each target set, model authentication/error, empty model response, Sheets failure and editor-email failure. Have a human compare generated drafts with the original source to check factual faithfulness, attribution and platform requirements.
+
+## Limits
+
+This workflow creates drafts and emails the editor; it does not publish or persist a separate approval decision. After review, send approved assets to the platform-specific workflow with an appropriate approval input. Human review remains important because generated text can omit context or introduce unsupported claims.
+
+Files: [workflow.json](./workflow.json) · [Code.gs](./Code.gs)  
+Shared guides: [credentials](../CREDENTIALS-GUIDE.md) · [testing](../../TESTING-AND-VALIDATION.md)

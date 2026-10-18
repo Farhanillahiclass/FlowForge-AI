@@ -1,44 +1,32 @@
 # 07 — Meeting Booking System
 
-**Maintainer:** Muhammad Farhan
+**Maintainer:** Muhammad Farhan  
+**Event type:** `meeting.booking.requested`  
+**Status:** Static-checked template; Calendar execution not yet verified.
 
-## Business goal
-Booking webhook → validate → check calendar free/busy → create event → confirmation.
+## Purpose
 
-## Required credentials and configuration
-Google Calendar OAuth, calendar ID, optional Gmail and timezone.
+Validate a meeting request and create a Google Calendar event using the supplied future start/end times.
 
-- Import [`workflow.json`](./workflow.json) into a **test** n8n instance and confirm node compatibility with your installed version.
-- Configure OAuth/API credentials inside n8n Credentials. Never commit tokens or passwords.
-- Replace sample IDs, recipients, calendars, URLs, time zones and business rules.
-- Replace every `Configure`, `Connect`, or `No Operation` placeholder with a real action before expecting external side effects.
-- Keep the workflow inactive while testing with synthetic data and accounts you control.
+## Input contract
 
-## Implementation checklist
-1. Confirm the trigger and required input schema.
-2. Validate required fields and return clear errors for bad input.
-3. Apply business rules, consent, SLA, and approval requirements.
-4. Persist output and a stable business-event ID.
-5. Connect actual external actions and verify destination-side results.
-6. Add bounded retries/backoff for transient errors and sanitized alerts.
-7. Add durable idempotency so retries do not duplicate side effects.
+Required: stable `requestId`, `name`, valid `email`, future `start`, and `end` later than `start`. Optional: `topic` and `timezone`. Use ISO-8601 timestamps with an explicit timezone/offset to avoid ambiguity.
 
-## Test checklist
-Test conflict detection, past date, DST/timezone, duplicate booking, cancellation and email. Add a real free/busy check.
+## Workflow path
 
-- [ ] Valid input produces the expected output.
-- [ ] Missing/malformed input is rejected safely.
-- [ ] Duplicate event is checked within one run and across separate runs.
-- [ ] Provider timeout/permission errors are visible; there is no false success.
-- [ ] Logs and alerts contain no secrets or unnecessary customer data.
+`Header Auth Webhook / parent entry → validate booking fields → valid? → Google Calendar event create → structured result`
 
-## Files in this folder
-- [`workflow.json`](./workflow.json) — n8n workflow export.
-- [`Code.gs`](./Code.gs) — optional Google Sheets Apps Script adapter; use only when the workflow needs it.
+## Configuration
 
-For Apps Script use, create a separate test spreadsheet/project, set Script Properties `SPREADSHEET_ID` and `FLOWFORGE_TOKEN`, run `setupSheet()`, deploy with an approved access policy, and test success, invalid token, malformed JSON, missing/duplicate request ID, and permission failure.
+Select Google Calendar OAuth credentials and replace `REPLACE_WITH_CALENDAR_ID`. Direct Webhook calls require Header Auth. Check your n8n Google Calendar node version before use.
 
-## Status and limitations
-This file is a workflow template, not proof of a live end-to-end test. JSON/static checks do not prove n8n import compatibility, valid provider parameters, credentials, or successful API calls. Import and test the workflow, record the n8n version and execution evidence, and only then call it production-ready.
+## Tests to run
 
-See [shared credentials guidance](../CREDENTIALS-GUIDE.md) and [testing report](../../TESTING-AND-VALIDATION.md).
+Test valid future event, past start, end before start, invalid email, missing request ID, calendar permission error, and a meeting that conflicts with an existing calendar event. Verify the event itself in Calendar.
+
+## Limits
+
+The current workflow **does not query free/busy or detect conflicting bookings before creating an event**, and it does not yet send a separate confirmation email to the requester. Add those steps before using it as a public booking system. Static response output is not proof the event was successfully created.
+
+Files: [workflow.json](./workflow.json) · [Code.gs](./Code.gs)  
+Shared guides: [credentials](../CREDENTIALS-GUIDE.md) · [testing](../../TESTING-AND-VALIDATION.md)

@@ -2,7 +2,7 @@ name: Validate workflow templates
 
 on:
   push:
-    branches: [main, "chore/**", "feature/**", "fix/**"]
+    branches: [main, "chore/**", "feature/**", "fix/**", "architecture/**"]
   pull_request:
   workflow_dispatch:
 

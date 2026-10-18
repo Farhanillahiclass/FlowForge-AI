@@ -1,44 +1,36 @@
 # 15 — Newsletter Campaign Builder
 
-**Maintainer:** Muhammad Farhan
+**Maintainer:** Muhammad Farhan  
+**Event type:** `newsletter.campaign.requested`  
+**Status:** Static-checked template; live mailing not yet verified.
 
-## Business goal
-Draft → validate → consented audience → suppression → approval → batch send → log.
+## Purpose
 
-## Required credentials and configuration
-Consented subscriber source, email service, unsubscribe/suppression store.
+Validate a newsletter draft, require an explicit approval flag, read the subscriber list, filter by consent and unsubscribe status, send the message to eligible recipients, and log send attempts.
 
-- Import [`workflow.json`](./workflow.json) into a **test** n8n instance and confirm node compatibility with your installed version.
-- Configure OAuth/API credentials inside n8n Credentials. Never commit tokens or passwords.
-- Replace sample IDs, recipients, URLs and business rules.
-- Replace every `Configure`, `Connect`, or `No Operation` placeholder with a real action before expecting external side effects.
-- Keep the workflow inactive while testing with synthetic data and accounts you control.
+## Input contract
 
-## Implementation checklist
-1. Confirm the trigger and required input schema.
-2. Validate required fields and return clear errors for bad input.
-3. Apply business rules, consent, approval and platform requirements.
-4. Persist output and a stable business-event ID.
-5. Connect actual external actions and verify destination-side results.
-6. Add bounded retries/backoff for transient errors and sanitized alerts.
-7. Add durable idempotency so retries do not duplicate side effects.
+Required: stable `requestId`, non-empty `subject`, `body` longer than 20 characters, and `approved: true` to start sending. Optional: `audienceId` to limit recipients. Without approval, the workflow returns `pending-approval` and does not enter the mailing branch.
 
-## Test checklist
-Test with internal recipients first; enforce opt-out, suppression, rate limits and provider terms.
+## Required Subscribers and CampaignLog sheet fields
 
-- [ ] Valid input produces the expected output.
-- [ ] Missing/malformed input is rejected safely.
-- [ ] Duplicate event is checked within one run and across separate runs.
-- [ ] Provider timeout/permission errors are visible; there is no false success.
-- [ ] Logs and alerts contain no secrets or unnecessary customer data.
+The `Subscribers` tab needs `email`, `consent`, `unsubscribed` and optionally `audienceId`, `subscriberId`. The workflow accepts Boolean or string forms of true/yes for consent and unsubscribe flags. The `CampaignLog` tab stores request ID, subscriber email/ID, subject and attempt time.
 
-## Files in this folder
-- [`workflow.json`](./workflow.json) — n8n workflow export.
-- [`Code.gs`](./Code.gs) — optional Google Sheets Apps Script adapter; use only when the workflow needs it.
+## Workflow path
 
-For Apps Script use, create a separate test spreadsheet/project, set Script Properties `SPREADSHEET_ID` and `FLOWFORGE_TOKEN`, run `setupSheet()`, deploy with an approved access policy, and test success, invalid token, malformed JSON, missing/duplicate request ID, and permission failure.
+`Header Auth Webhook / parent entry → validate → Campaign Approved? → read subscribers → filter valid consented recipients and suppress unsubscribed → Gmail per recipient → append send-attempt log`
 
-## Status and limitations
-This file is a workflow template, not proof of a live end-to-end test. JSON/static checks do not prove n8n import compatibility, valid provider parameters, credentials, or successful API calls. Import and test the workflow, record the n8n version and execution evidence, and only then call it production-ready.
+## Configuration
 
-See [shared credentials guidance](../CREDENTIALS-GUIDE.md) and [testing report](../../TESTING-AND-VALIDATION.md).
+Select Google Sheets and Gmail credentials. Replace `REPLACE_WITH_SUBSCRIBERS_SPREADSHEET_ID` and `REPLACE_WITH_CAMPAIGN_LOG_SPREADSHEET_ID`. Test with internal addresses first and keep the workflow inactive until the full mailing and suppression behavior is verified.
+
+## Tests to run
+
+Test missing consent, unsubscribed flag, invalid email, another audience ID, an empty eligible list, approval false/true, Gmail failure, and log-write failure. Confirm only intended addresses receive a test message.
+
+## Limits and safeguards
+
+The `approved` flag is supplied by the authenticated caller; it is not a reviewer identity or persisted approval record. The current template relies on Gmail sends per subscriber, not a specialized campaign provider. Provider quotas, unsubscribe law/policy, bounce management and suppression data need separate handling. A send followed by failed logging can create uncertain delivery state; reconcile before retrying. Use an internal test list and require human review before a real campaign.
+
+Files: [workflow.json](./workflow.json) · [Code.gs](./Code.gs)  
+Shared guides: [credentials](../CREDENTIALS-GUIDE.md) · [testing](../../TESTING-AND-VALIDATION.md)
