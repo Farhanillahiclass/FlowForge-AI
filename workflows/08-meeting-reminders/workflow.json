@@ -14,8 +14,8 @@
         "rule": {
           "interval": [
             {
-              "field": "hours",
-              "hoursInterval": 24
+              "field": "minutes",
+              "minutesInterval": 15
             }
           ]
         }
@@ -52,19 +52,77 @@
       ],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const now=Date.now();return $input.all().filter(i=>{const start=Date.parse(i.json.start?.dateTime||i.json.start||'');const minutes=(start-now)/60000;return Number.isFinite(start)&&minutes>=0&&minutes<=60;}).map(i=>({json:{...i.json,reminderDue:true,reminderWindowMinutes:60}}));"
+        "jsCode": "const now=Date.now(); return $input.all().filter(i=>{const start=Date.parse(i.json.start?.dateTime||i.json.start||''); const mins=(start-now)/60000; return Number.isFinite(start)&&mins>=0&&mins<=60&&(i.json.attendees||[]).some(a=>a.email);}).map(i=>({json:{...i.json,reminderDue:true,reminderWindowMinutes:60,reminderRecipient:String((i.json.attendees||[]).find(a=>a.email)?.email||i.json.organizer?.email||''),reminderKey:String(i.json.id||i.json.iCalUID||'')+':60m'}}));"
       }
     },
     {
       "id": "notify",
-      "name": "Send Reminder — Add Gmail or Telegram Node",
-      "type": "n8n-nodes-base.noOp",
-      "typeVersion": 1,
+      "name": "Send Meeting Reminder via Gmail",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
       "position": [
         980,
         300
       ],
-      "parameters": {}
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "sendTo": "={{ $json.reminderRecipient }}",
+        "subject": "Meeting reminder: {{ $json.summary || 'Upcoming meeting' }}",
+        "emailType": "text",
+        "message": "=Reminder: your meeting is scheduled to start within the next 60 minutes.\\nMeeting: {{ $json.summary || 'Meeting' }}\\nStart: {{ $json.start.dateTime || $json.start }}\\nPlease check the calendar event for details.",
+        "options": {}
+      }
+    },
+    {
+      "id": "subflow-trigger",
+      "name": "Called by Parent Workflow",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -600,
+        560
+      ],
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "requestId",
+              "type": "string"
+            },
+            {
+              "name": "eventType",
+              "type": "string"
+            },
+            {
+              "name": "source",
+              "type": "string"
+            },
+            {
+              "name": "occurredAt",
+              "type": "string"
+            },
+            {
+              "name": "data",
+              "type": "object"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "subflow-adapter",
+      "name": "Normalize Parent Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -350,
+        560
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const e=$json||{}; const d=e.data&&typeof e.data==='object'&&!Array.isArray(e.data)?e.data:{}; const requestId=String(e.requestId||e.eventId||''); return [{json:{...d,requestId,eventId:requestId,eventType:String(e.eventType||''),source:String(e.source||'parent-workflow'),occurredAt:String(e.occurredAt||new Date().toISOString()),_flowforge:{requestId,eventType:String(e.eventType||''),source:String(e.source||'parent-workflow')}}}];"
+      }
     }
   ],
   "connections": {
@@ -94,7 +152,29 @@
       "main": [
         [
           {
-            "node": "Send Reminder — Add Gmail or Telegram Node",
+            "node": "Send Meeting Reminder via Gmail",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Called by Parent Workflow": {
+      "main": [
+        [
+          {
+            "node": "Normalize Parent Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Parent Payload": {
+      "main": [
+        [
+          {
+            "node": "Get Upcoming Events — Configure Google Calendar",
             "type": "main",
             "index": 0
           }
