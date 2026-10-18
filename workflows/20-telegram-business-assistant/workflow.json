@@ -14,7 +14,8 @@
         "httpMethod": "POST",
         "path": "telegram-business-assistant",
         "responseMode": "lastNode",
-        "options": {}
+        "options": {},
+        "authentication": "headerAuth"
       }
     },
     {
@@ -28,7 +29,7 @@
       ],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const b=$json.body||$json;const text=String(b.message?.text||b.text||'').trim();const chatId=b.message?.chat?.id||b.chatId||null;const parts=text.split(/\\\\s+/);const command=(parts[0]||'').toLowerCase();const rest=text.slice(parts[0]?.length||0).trim();const leadParts=rest.split('|').map(x=>x.trim());const leadName=leadParts[0]||'';const leadEmail=String(leadParts[1]||'').toLowerCase();const company=leadParts[2]||'';const supportText=command==='/support'?rest:'';const route=command==='/start'?'welcome':command==='/help'?'help':command==='/lead'?'lead-intake':command==='/support'?'support-ticket':'human-review';return [{json:{chatId,text,command,route,leadName,leadEmail,company,leadValid:!!leadName&&/^[^\\\\s@]+@[^\\\\s@]+\\\\.[^\\\\s@]+$/.test(leadEmail),supportText,supportValid:supportText.length>=8,requestId:String(b.update_id||b.requestId||'telegram-'+Date.now()),valid:!!text&&!!chatId,receivedAt:new Date().toISOString()}}];"
+        "jsCode": "const b=$json.body||$json;const text=String(b.message?.text||b.text||'').trim();const chatId=b.message?.chat?.id||b.chatId||null;const parts=text.split(/\\\\s+/);const command=(parts[0]||'').toLowerCase();const rest=text.slice(parts[0]?.length||0).trim();const leadParts=rest.split('|').map(x=>x.trim());const leadName=leadParts[0]||'';const leadEmail=String(leadParts[1]||'').toLowerCase();const company=leadParts[2]||'';const supportText=command==='/support'?rest:'';const leadValid=!!leadName&&/^[^\\\\s@]+@[^\\\\s@]+\\\\.[^\\\\s@]+$/.test(leadEmail);const supportValid=supportText.length>=8;const route=command==='/start'?'welcome':command==='/help'?'help':command==='/lead'?'lead-intake':command==='/support'?(supportValid?'support-ticket':'support-invalid'):'human-review';return [{json:{chatId,text,command,route,leadName,leadEmail,company,leadValid,supportText,supportValid,requestId:String(b.update_id||b.requestId||'telegram-'+Date.now()),valid:!!text&&!!chatId,receivedAt:new Date().toISOString()}}];"
       }
     },
     {
@@ -110,13 +111,80 @@
                 "combinator": "and"
               },
               "renameOutput": true,
-              "outputKey": "lead"
+              "outputKey": "lead-intake"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "support-ticket",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "support-ticket"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "support-invalid",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "support-invalid"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "human-review",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "human-review"
             }
           ]
         },
-        "options": {
-          "fallbackOutput": "extra"
-        }
+        "options": {}
       }
     },
     {
@@ -416,6 +484,23 @@
         "mode": "runOnceForAllItems",
         "jsCode": "const e=$json||{}; const d=e.data&&typeof e.data==='object'&&!Array.isArray(e.data)?e.data:{}; const requestId=String(e.requestId||e.eventId||''); return [{json:{...d,requestId,eventId:requestId,eventType:String(e.eventType||''),source:String(e.source||'parent-workflow'),occurredAt:String(e.occurredAt||new Date().toISOString()),_flowforge:{requestId,eventType:String(e.eventType||''),source:String(e.source||'parent-workflow')}}}];"
       }
+    },
+    {
+      "id": "support-invalid-reply",
+      "name": "Reply Support Format Error",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1150,
+        600
+      ],
+      "parameters": {
+        "resource": "message",
+        "operation": "sendMessage",
+        "chatId": "={{ $('Parse Commands').item.json.chatId }}",
+        "text": "Please describe the issue after /support (at least 8 characters).",
+        "additionalFields": {}
+      }
     }
   ],
   "connections": {
@@ -467,6 +552,13 @@
         [
           {
             "node": "Record Support Ticket",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Reply Support Format Error",
             "type": "main",
             "index": 0
           }
