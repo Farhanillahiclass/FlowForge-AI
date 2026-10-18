@@ -140,7 +140,7 @@ def inspect_workflow(path: Path):
 def inspect_canonical_folders(fail):
     folders = {p.name for p in WORKFLOWS.iterdir() if p.is_dir()} if WORKFLOWS.exists() else set()
     if folders != set(EXPECTED_WORKFLOWS):
-        fail("canonical workflow folders", f"missing={sorted(set(EXPECTED_WORKFLOWS)-folders)}; extra={sorted(folders-set(EXPECTED_WORKFLOWS)}")
+        fail("canonical workflow folders", f"missing={sorted(set(EXPECTED_WORKFLOWS) - folders)}; extra={sorted(folders - set(EXPECTED_WORKFLOWS))}")
     for mirror in LEGACY_MIRRORS:
         if (ROOT / mirror).exists():
             fail("duplicate mirror directory", mirror)
