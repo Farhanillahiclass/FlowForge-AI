@@ -1,44 +1,32 @@
 # 09 — Client Onboarding
 
-**Maintainer:** Muhammad Farhan
+**Maintainer:** Muhammad Farhan  
+**Event type:** `client.onboarding.start`  
+**Status:** Static-checked template; Sheets/Gmail execution not yet verified.
 
-## Business goal
-Intake → validate → CRM record → welcome email → onboarding tasks → kickoff meeting.
+## Purpose
 
-## Required credentials and configuration
-Sheets/CRM OAuth, Gmail, Google Calendar and approved templates.
+Validate a new client request, create a starter onboarding checklist, append a client record to Google Sheets, and send the client a welcome email.
 
-- Import [`workflow.json`](./workflow.json) into a **test** n8n instance and confirm node compatibility with your installed version.
-- Configure OAuth/API credentials inside n8n Credentials. Never commit tokens or passwords.
-- Replace sample IDs, recipients, calendars, URLs, time zones and business rules.
-- Replace every `Configure`, `Connect`, or `No Operation` placeholder with a real action before expecting external side effects.
-- Keep the workflow inactive while testing with synthetic data and accounts you control.
+## Input contract
 
-## Implementation checklist
-1. Confirm the trigger and required input schema.
-2. Validate required fields and return clear errors for bad input.
-3. Apply business rules, consent, SLA, and approval requirements.
-4. Persist output and a stable business-event ID.
-5. Connect actual external actions and verify destination-side results.
-6. Add bounded retries/backoff for transient errors and sanitized alerts.
-7. Add durable idempotency so retries do not duplicate side effects.
+Required: `requestId`, client name (or `name`), and valid `email`. Optional: `service` and `owner`. The checklist currently includes sending a welcome message, creating a record, scheduling a kickoff, and collecting requirements.
 
-## Test checklist
-Test duplicate client intake, missing details, task ownership, timezone and email delivery.
+## Workflow path
 
-- [ ] Valid input produces the expected output.
-- [ ] Missing/malformed input is rejected safely.
-- [ ] Duplicate event is checked within one run and across separate runs.
-- [ ] Provider timeout/permission errors are visible; there is no false success.
-- [ ] Logs and alerts contain no secrets or unnecessary customer data.
+`Header Auth Webhook / parent entry → validate and build checklist → Google Sheets Clients append → Gmail welcome message → structured result`
 
-## Files in this folder
-- [`workflow.json`](./workflow.json) — n8n workflow export.
-- [`Code.gs`](./Code.gs) — optional Google Sheets Apps Script adapter; use only when the workflow needs it.
+## Configuration
 
-For Apps Script use, create a separate test spreadsheet/project, set Script Properties `SPREADSHEET_ID` and `FLOWFORGE_TOKEN`, run `setupSheet()`, deploy with an approved access policy, and test success, invalid token, malformed JSON, missing/duplicate request ID, and permission failure.
+Select Google Sheets and Gmail OAuth credentials. Replace `REPLACE_WITH_CLIENTS_SPREADSHEET_ID` and create a `Clients` tab with headers matching the output fields.
 
-## Status and limitations
-This file is a workflow template, not proof of a live end-to-end test. JSON/static checks do not prove n8n import compatibility, valid provider parameters, credentials, or successful API calls. Import and test the workflow, record the n8n version and execution evidence, and only then call it production-ready.
+## Tests to run
 
-See [shared credentials guidance](../CREDENTIALS-GUIDE.md) and [testing report](../../TESTING-AND-VALIDATION.md).
+Test valid client, missing name/email/request ID, duplicate request, Sheets failure, and Gmail failure. Confirm that the saved record and welcome email contain the expected fields.
+
+## Limits
+
+There is no durable duplicate check in the current onboarding flow, and the kickoff step is currently a checklist item—not a Calendar event. Add request-ID uniqueness, actual task creation, a Calendar availability check, and a reconciliation policy before production onboarding.
+
+Files: [workflow.json](./workflow.json) · [Code.gs](./Code.gs)  
+Shared guides: [credentials](../CREDENTIALS-GUIDE.md) · [testing](../../TESTING-AND-VALIDATION.md)
