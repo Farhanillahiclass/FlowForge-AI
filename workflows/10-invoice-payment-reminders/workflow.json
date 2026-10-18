@@ -23,14 +23,29 @@
     },
     {
       "id": "source",
-      "name": "Read Invoice Register — Configure Google Sheets",
-      "type": "n8n-nodes-base.noOp",
-      "typeVersion": 1,
+      "name": "Read Invoice Register",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
       "position": [
         450,
         300
       ],
-      "parameters": {}
+      "parameters": {
+        "operation": "getAll",
+        "documentId": {
+          "__rl": true,
+          "value": "REPLACE_WITH_INVOICE_SPREADSHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Invoices",
+          "mode": "name"
+        },
+        "returnAll": true,
+        "options": {}
+      },
+      "alwaysOutputData": true
     },
     {
       "id": "filter",
@@ -43,19 +58,116 @@
       ],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const now=Date.now();return $input.all().filter(i=>String(i.json.status||'').toLowerCase()==='unpaid'&&Date.parse(i.json.dueDate)<now&&Number(i.json.reminderCount||0)<3).map(i=>({json:{...i.json,daysOverdue:Math.floor((now-Date.parse(i.json.dueDate))/86400000),eligibleForReminder:true}}));"
+        "jsCode": "const now=Date.now(); return $input.all().filter(i=>String(i.json.status||'').toLowerCase()==='unpaid'&&Number.isFinite(Date.parse(i.json.dueDate))&&Date.parse(i.json.dueDate)<now&&Number(i.json.reminderCount||0)<3&&/^[^\\\\s@]+@[^\\\\s@]+\\\\.[^\\\\s@]+$/.test(String(i.json.email||i.json.billingEmail||''))).map(i=>({json:{...i.json,daysOverdue:Math.floor((now-Date.parse(i.json.dueDate))/86400000),eligibleForReminder:true,requestId:String(i.json.invoiceId||i.json.id||'')}}));"
       }
     },
     {
       "id": "send",
-      "name": "Send Reminder — Configure Gmail and Update Register",
-      "type": "n8n-nodes-base.noOp",
-      "typeVersion": 1,
+      "name": "Send Overdue Invoice Reminder",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
       "position": [
         960,
         300
       ],
-      "parameters": {}
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "sendTo": "={{ $json.email || $json.billingEmail }}",
+        "subject": "Payment reminder for invoice {{ $json.invoiceNumber || $json.invoiceId }}",
+        "emailType": "text",
+        "message": "=Hello, this is a reminder that invoice {{ $json.invoiceNumber || $json.invoiceId }} is overdue by {{ $json.daysOverdue }} days. Please check your records and contact us if you need help.",
+        "options": {}
+      }
+    },
+    {
+      "id": "update-invoice",
+      "name": "Update Invoice Reminder Count",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        1510,
+        260
+      ],
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "REPLACE_WITH_INVOICE_SPREADSHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Invoices",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "invoiceId": "={{ $('Filter Unpaid Overdue Invoices').item.json.invoiceId || $('Filter Unpaid Overdue Invoices').item.json.id }}",
+            "status": "={{ $('Filter Unpaid Overdue Invoices').item.json.status }}",
+            "reminderCount": "={{ Number($('Filter Unpaid Overdue Invoices').item.json.reminderCount || 0) + 1 }}",
+            "lastReminderAt": "={{ new Date().toISOString() }}"
+          },
+          "matchingColumns": [
+            "invoiceId"
+          ],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "subflow-trigger",
+      "name": "Called by Parent Workflow",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -600,
+        560
+      ],
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "requestId",
+              "type": "string"
+            },
+            {
+              "name": "eventType",
+              "type": "string"
+            },
+            {
+              "name": "source",
+              "type": "string"
+            },
+            {
+              "name": "occurredAt",
+              "type": "string"
+            },
+            {
+              "name": "data",
+              "type": "object"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "subflow-adapter",
+      "name": "Normalize Parent Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -350,
+        560
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const e=$json||{}; const d=e.data&&typeof e.data==='object'&&!Array.isArray(e.data)?e.data:{}; const requestId=String(e.requestId||e.eventId||''); return [{json:{...d,requestId,eventId:requestId,eventType:String(e.eventType||''),source:String(e.source||'parent-workflow'),occurredAt:String(e.occurredAt||new Date().toISOString()),_flowforge:{requestId,eventType:String(e.eventType||''),source:String(e.source||'parent-workflow')}}}];"
+      }
     }
   ],
   "connections": {
@@ -63,14 +175,14 @@
       "main": [
         [
           {
-            "node": "Read Invoice Register — Configure Google Sheets",
+            "node": "Read Invoice Register",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Read Invoice Register — Configure Google Sheets": {
+    "Read Invoice Register": {
       "main": [
         [
           {
@@ -85,7 +197,40 @@
       "main": [
         [
           {
-            "node": "Send Reminder — Configure Gmail and Update Register",
+            "node": "Send Overdue Invoice Reminder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Overdue Invoice Reminder": {
+      "main": [
+        [
+          {
+            "node": "Update Invoice Reminder Count",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Called by Parent Workflow": {
+      "main": [
+        [
+          {
+            "node": "Normalize Parent Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Parent Payload": {
+      "main": [
+        [
+          {
+            "node": "Read Invoice Register",
             "type": "main",
             "index": 0
           }
