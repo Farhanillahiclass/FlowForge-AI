@@ -32,19 +32,34 @@
       ],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "return [{json:{checkedAt:new Date().toISOString(),status:'setup-required',requiredSteps:['Connect a CRM or Google Sheets read node','Filter contacts whose follow-up is due','Exclude unsubscribed or opted-out contacts','Send via Gmail','Update lastSentAt and nextFollowUpAt','Deduplicate using a stable contact/campaign key'],productionReady:false}}];"
+        "jsCode": "const now=Date.now(); const rows=$input.all().map(i=>i.json); const ready=rows.filter(r=>{const email=String(r.email||'').trim(); const consent=r.consent===true||String(r.consent).toLowerCase()==='true'||String(r.consent).toLowerCase()==='yes'; const optedOut=r.optedOut===true||String(r.optedOut).toLowerCase()==='true'||String(r.optedOut).toLowerCase()==='yes'||r.unsubscribed===true||String(r.unsubscribed).toLowerCase()==='true'; const due=Date.parse(r.nextFollowUpAt||''); const count=Number(r.followUpCount||0); return /^[^\\\\s@]+@[^\\\\s@]+\\\\.[^\\\\s@]+$/.test(email)&&consent&&!optedOut&&Number.isFinite(due)&&due<=now&&count<3;}).map(r=>({json:{...r,email:String(r.email).trim(),followUpCount:Number(r.followUpCount||0),requestId:String(r.requestId||r.contactId||r.email),checkedAt:new Date().toISOString()}})); if(!ready.length)return [{json:{noDueContacts:true,checkedAt:new Date().toISOString(),status:'nothing-due'}}]; return ready;"
       }
     },
     {
       "id": "end",
-      "name": "Review Setup Status",
-      "type": "n8n-nodes-base.noOp",
-      "typeVersion": 1,
+      "name": "Read Follow-up Contacts",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
       "position": [
-        700,
+        420,
         300
       ],
-      "parameters": {}
+      "parameters": {
+        "operation": "getAll",
+        "documentId": {
+          "__rl": true,
+          "value": "REPLACE_WITH_FOLLOWUPS_SPREADSHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "FollowUps",
+          "mode": "name"
+        },
+        "returnAll": true,
+        "options": {}
+      },
+      "alwaysOutputData": true
     },
     {
       "id": "subflow-trigger",
@@ -95,6 +110,125 @@
         "mode": "runOnceForAllItems",
         "jsCode": "const e=$json||{}; const d=e.data&&typeof e.data==='object'&&!Array.isArray(e.data)?e.data:{}; const requestId=String(e.requestId||e.eventId||''); return [{json:{...d,requestId,eventId:requestId,eventType:String(e.eventType||''),source:String(e.source||'parent-workflow'),occurredAt:String(e.occurredAt||new Date().toISOString()),_flowforge:{requestId,eventType:String(e.eventType||''),source:String(e.source||'parent-workflow')}}}];"
       }
+    },
+    {
+      "id": "any-due",
+      "name": "Any Follow-up Due?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        680,
+        300
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "due",
+              "leftValue": "={{ !$json.noDueContacts }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "send",
+      "name": "Send Consent-Aware Follow-up",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        930,
+        200
+      ],
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "sendTo": "={{ $json.email }}",
+        "subject": "={{ $json.followUpSubject || 'Following up' }}",
+        "emailType": "text",
+        "message": "={{ $json.followUpBody || ('Hello ' + ($json.name || $json.contactName || 'there') + ',\\n\\nI wanted to follow up on our previous conversation. Reply to this email if you would like to continue.\\n\\nIf you no longer want these messages, reply with unsubscribe and we will update your preferences.') }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "update-state",
+      "name": "Update Follow-up State",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        1190,
+        200
+      ],
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "REPLACE_WITH_FOLLOWUPS_SPREADSHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "FollowUps",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "email": "={{ $('Prepare Safe Follow-up Run').item.json.email }}",
+            "followUpCount": "={{ Number($('Prepare Safe Follow-up Run').item.json.followUpCount || 0) + 1 }}",
+            "lastFollowUpAt": "={{ new Date().toISOString() }}",
+            "nextFollowUpAt": "={{ new Date(Date.now() + 72*60*60*1000).toISOString() }}",
+            "status": "follow-up-sent"
+          },
+          "matchingColumns": [
+            "email"
+          ],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "followup-result",
+      "name": "Return Follow-up Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1430,
+        200
+      ],
+      "parameters": {
+        "jsCode": "const e=$('Prepare Safe Follow-up Run').item.json;return [{json:{ok:true,status:'follow-up-sent',requestId:e.requestId,email:e.email,followUpCount:Number(e.followUpCount||0)+1,nextFollowUpAt:new Date(Date.now()+72*60*60*1000).toISOString()}}];"
+      }
+    },
+    {
+      "id": "nothing-due",
+      "name": "Return Nothing Due",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        930,
+        410
+      ],
+      "parameters": {
+        "jsCode": "const e=$json;return [{json:{ok:true,status:'nothing-due',checkedAt:e.checkedAt,emailsSent:0}}];"
+      }
     }
   ],
   "connections": {
@@ -102,7 +236,7 @@
       "main": [
         [
           {
-            "node": "Prepare Safe Follow-up Run",
+            "node": "Read Follow-up Contacts",
             "type": "main",
             "index": 0
           }
@@ -113,7 +247,7 @@
       "main": [
         [
           {
-            "node": "Review Setup Status",
+            "node": "Any Follow-up Due?",
             "type": "main",
             "index": 0
           }
@@ -135,7 +269,58 @@
       "main": [
         [
           {
+            "node": "Read Follow-up Contacts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Follow-up Contacts": {
+      "main": [
+        [
+          {
             "node": "Prepare Safe Follow-up Run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Any Follow-up Due?": {
+      "main": [
+        [
+          {
+            "node": "Send Consent-Aware Follow-up",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Return Nothing Due",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Consent-Aware Follow-up": {
+      "main": [
+        [
+          {
+            "node": "Update Follow-up State",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Follow-up State": {
+      "main": [
+        [
+          {
+            "node": "Return Follow-up Result",
             "type": "main",
             "index": 0
           }
