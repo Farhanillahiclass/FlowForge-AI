@@ -28,7 +28,7 @@
       ],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const b=$json.body||$json;const text=String(b.message?.text||b.text||'').trim();const chatId=b.message?.chat?.id||b.chatId||null;const command=(text.split(/\\\\s+/)[0]||'').toLowerCase();const route=command==='/start'?'welcome':command==='/help'?'help':command==='/lead'?'lead-intake':command==='/support'?'support-ticket':'human-review';return [{json:{chatId,text,command,route,valid:!!text&&!!chatId,receivedAt:new Date().toISOString()}}];"
+        "jsCode": "const b=$json.body||$json;const text=String(b.message?.text||b.text||'').trim();const chatId=b.message?.chat?.id||b.chatId||null;const parts=text.split(/\\\\s+/);const command=(parts[0]||'').toLowerCase();const rest=text.slice(parts[0]?.length||0).trim();const leadParts=rest.split('|').map(x=>x.trim());const leadName=leadParts[0]||'';const leadEmail=String(leadParts[1]||'').toLowerCase();const company=leadParts[2]||'';const supportText=command==='/support'?rest:'';const route=command==='/start'?'welcome':command==='/help'?'help':command==='/lead'?'lead-intake':command==='/support'?'support-ticket':'human-review';return [{json:{chatId,text,command,route,leadName,leadEmail,company,leadValid:!!leadName&&/^[^\\\\s@]+@[^\\\\s@]+\\\\.[^\\\\s@]+$/.test(leadEmail),supportText,supportValid:supportText.length>=8,requestId:String(b.update_id||b.requestId||'telegram-'+Date.now()),valid:!!text&&!!chatId,receivedAt:new Date().toISOString()}}];"
       }
     },
     {
@@ -121,47 +121,301 @@
     },
     {
       "id": "welcome",
-      "name": "Send Welcome Message — Configure Telegram",
-      "type": "n8n-nodes-base.noOp",
-      "typeVersion": 1,
+      "name": "Send Telegram Welcome Message",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
       "position": [
         980,
         160
       ],
-      "parameters": {}
+      "parameters": {
+        "resource": "message",
+        "operation": "sendMessage",
+        "chatId": "={{ $json.chatId }}",
+        "text": "Welcome to the business assistant. Use /help to see available commands.",
+        "additionalFields": {}
+      }
     },
     {
       "id": "help",
-      "name": "Send Help Menu — Configure Telegram",
-      "type": "n8n-nodes-base.noOp",
-      "typeVersion": 1,
+      "name": "Send Telegram Help Menu",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
       "position": [
         980,
         280
       ],
-      "parameters": {}
+      "parameters": {
+        "resource": "message",
+        "operation": "sendMessage",
+        "chatId": "={{ $json.chatId }}",
+        "text": "Available commands:\\n/start — welcome\\n/help — this menu\\n/lead Name | email@example.com | Company\\n/support Describe your issue",
+        "additionalFields": {}
+      }
     },
     {
       "id": "lead",
-      "name": "Create Lead Record — Configure Sheets and Reply",
-      "type": "n8n-nodes-base.noOp",
-      "typeVersion": 1,
+      "name": "Validate Lead Command",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
       "position": [
         980,
         400
       ],
-      "parameters": {}
+      "parameters": {
+        "jsCode": "const e=$json;return [{json:{...e,leadValid:!!e.leadValid}}];"
+      }
     },
     {
       "id": "fallback",
-      "name": "Support Ticket / Human Handoff — Configure Telegram + CRM",
-      "type": "n8n-nodes-base.noOp",
-      "typeVersion": 1,
+      "name": "Record Support Ticket",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
       "position": [
         980,
         520
       ],
-      "parameters": {}
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "REPLACE_WITH_SUPPORT_SPREADSHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "SupportTickets",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "requestId": "={{ $('Parse Commands').item.json.requestId }}",
+            "chatId": "={{ $('Parse Commands').item.json.chatId }}",
+            "subject": "Telegram support request",
+            "description": "={{ $('Parse Commands').item.json.supportText || $('Parse Commands').item.json.text }}",
+            "status": "open",
+            "source": "telegram",
+            "createdAt": "={{ $('Parse Commands').item.json.receivedAt }}"
+          },
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "lead-valid",
+      "name": "Lead Command Valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1150,
+        300
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "valid",
+              "leftValue": "={{ $json.leadValid }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "save-lead",
+      "name": "Save Telegram Lead",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        1370,
+        250
+      ],
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "REPLACE_WITH_LEADS_SPREADSHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Leads",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "requestId": "={{ $('Parse Commands').item.json.requestId }}",
+            "name": "={{ $('Parse Commands').item.json.leadName }}",
+            "email": "={{ $('Parse Commands').item.json.leadEmail }}",
+            "company": "={{ $('Parse Commands').item.json.company }}",
+            "source": "telegram",
+            "status": "new",
+            "receivedAt": "={{ $('Parse Commands').item.json.receivedAt }}"
+          },
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "lead-reply",
+      "name": "Reply Lead Saved",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1600,
+        250
+      ],
+      "parameters": {
+        "resource": "message",
+        "operation": "sendMessage",
+        "chatId": "={{ $('Parse Commands').item.json.chatId }}",
+        "text": "Lead details received and recorded.",
+        "additionalFields": {}
+      }
+    },
+    {
+      "id": "lead-bad-reply",
+      "name": "Reply Lead Format Error",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1370,
+        410
+      ],
+      "parameters": {
+        "resource": "message",
+        "operation": "sendMessage",
+        "chatId": "={{ $('Parse Commands').item.json.chatId }}",
+        "text": "Use: /lead Full Name | email@example.com | Company",
+        "additionalFields": {}
+      }
+    },
+    {
+      "id": "support-alert",
+      "name": "Email Telegram Support Handoff",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        1150,
+        520
+      ],
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "sendTo": "REPLACE_WITH_SUPPORT_EMAIL",
+        "subject": "New Telegram support request",
+        "emailType": "text",
+        "message": "=Request ID: {{ $('Parse Commands').item.json.requestId }}\\nChat ID: {{ $('Parse Commands').item.json.chatId }}\\nMessage: {{ $('Parse Commands').item.json.supportText || $('Parse Commands').item.json.text }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "support-reply",
+      "name": "Acknowledge Telegram Support Request",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1390,
+        520
+      ],
+      "parameters": {
+        "resource": "message",
+        "operation": "sendMessage",
+        "chatId": "={{ $('Parse Commands').item.json.chatId }}",
+        "text": "Your request has been recorded for the support team.",
+        "additionalFields": {}
+      }
+    },
+    {
+      "id": "human-reply",
+      "name": "Reply Unknown Telegram Command",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1150,
+        700
+      ],
+      "parameters": {
+        "resource": "message",
+        "operation": "sendMessage",
+        "chatId": "={{ $('Parse Commands').item.json.chatId }}",
+        "text": "I could not recognize that command. Send /help for the available options.",
+        "additionalFields": {}
+      }
+    },
+    {
+      "id": "subflow-trigger",
+      "name": "Called by Parent Workflow",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -650,
+        560
+      ],
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "requestId",
+              "type": "string"
+            },
+            {
+              "name": "eventType",
+              "type": "string"
+            },
+            {
+              "name": "source",
+              "type": "string"
+            },
+            {
+              "name": "occurredAt",
+              "type": "string"
+            },
+            {
+              "name": "data",
+              "type": "object"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "subflow-adapter",
+      "name": "Normalize Parent Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -400,
+        560
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const e=$json||{}; const d=e.data&&typeof e.data==='object'&&!Array.isArray(e.data)?e.data:{}; const requestId=String(e.requestId||e.eventId||''); return [{json:{...d,requestId,eventId:requestId,eventType:String(e.eventType||''),source:String(e.source||'parent-workflow'),occurredAt:String(e.occurredAt||new Date().toISOString()),_flowforge:{requestId,eventType:String(e.eventType||''),source:String(e.source||'parent-workflow')}}}];"
+      }
     }
   ],
   "connections": {
@@ -191,28 +445,119 @@
       "main": [
         [
           {
-            "node": "Send Welcome Message — Configure Telegram",
+            "node": "Send Telegram Welcome Message",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "Send Help Menu — Configure Telegram",
+            "node": "Send Telegram Help Menu",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "Create Lead Record — Configure Sheets and Reply",
+            "node": "Validate Lead Command",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "Support Ticket / Human Handoff — Configure Telegram + CRM",
+            "node": "Record Support Ticket",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Reply Unknown Telegram Command",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Lead Command": {
+      "main": [
+        [
+          {
+            "node": "Lead Command Valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lead Command Valid?": {
+      "main": [
+        [
+          {
+            "node": "Save Telegram Lead",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Reply Lead Format Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Telegram Lead": {
+      "main": [
+        [
+          {
+            "node": "Reply Lead Saved",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Record Support Ticket": {
+      "main": [
+        [
+          {
+            "node": "Email Telegram Support Handoff",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Email Telegram Support Handoff": {
+      "main": [
+        [
+          {
+            "node": "Acknowledge Telegram Support Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Called by Parent Workflow": {
+      "main": [
+        [
+          {
+            "node": "Normalize Parent Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Parent Payload": {
+      "main": [
+        [
+          {
+            "node": "Parse Commands",
             "type": "main",
             "index": 0
           }
