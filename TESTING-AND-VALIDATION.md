@@ -1,71 +1,93 @@
 # Testing & Validation Report — FlowForge-AI
 
-## Scope and status
+## Scope and honest status
 
-This repository contains 20 business-workflow templates and a modular system example. Static repository checks and live provider tests are different things.
+The repository contains 20 canonical n8n workflow exports, a shared ingress/dispatcher/error-handler layer, and static validation in GitHub Actions.
 
-- Each business workflow's canonical export is `workflows/<slug>/workflow.json`.
-- The system layer contains main ingress, a dispatcher, three child-workflow examples, and a central error handler.
-- **Live n8n import/execution and provider integrations have not been run from this repository environment.** Child workflow IDs and credentials still need to be selected in your n8n account.
-- The system dispatcher currently routes three event types only. The other 17 business workflows remain standalone templates and are not yet connected to the central dispatcher.
+- Duplicate root-level JSON copies and mirrored `apps-script/` / `workflow-guides/` trees have been removed.
+- The 20 canonical workflow exports are structurally checked on this branch: each has a parent-call entry point, unique node names and IDs, valid connection targets, and remains inactive.
+- The canonical 20 workflow exports contain no `n8n-nodes-base.noOp` nodes.
+- The central request processor has 20 event routes, each pointing at one canonical workflow folder.
+- **Live n8n import, provider credentials, and destination-side effects have not been executed in this environment.** Provider node compatibility depends on the n8n version and needs to be verified in a disposable test project.
 
-## Run static validation locally
+## Run repository validation
+
+From the repository root:
 
 ```bash
 python scripts/validate_workflows.py
 ```
 
-The validator checks canonical folder layout, required per-workflow files, JSON syntax, duplicate node names/IDs, and connection target references across business and system workflow exports. It warns about obvious placeholders and No Operation nodes.
+The validator checks folder layout, required files, JSON syntax, unique node identities, connection targets, webhook authentication settings, absence of duplicate mirrors and No Operation nodes, and the system's 20 Execute Sub-workflow routes. GitHub Actions runs this static validator on pushes and pull requests.
 
-A static pass does not prove installed node-schema compatibility, credential access, Apps Script deployment, or successful provider API actions.
+A passing static check does **not** prove node-parameter compatibility, credential validity, authentication setup, Apps Script deployment, or successful execution against a provider.
 
-## Core system import order
+## Core system deployment order
 
-1. Import `system/10-lead-capture-subflow.json`, `system/11-lead-scoring-subflow.json`, and `system/12-support-ticket-subflow.json`.
-2. Import `system/01-request-processor.json`; choose each imported child in its Execute Sub-workflow node.
-3. Import `system/00-main-ingress.json`; choose the request processor and configure Header Auth on the Webhook node.
-4. Import `system/90-central-error-handler.json`; configure the ops-log Sheet and alert recipient, then assign it under **Workflow Settings → Error Workflow** for relevant workflows.
-5. Configure every sheet ID/tab, recipient, and provider credential inside n8n. Keep all workflows inactive until test cases pass.
+1. Import all 20 canonical files at `workflows/<slug>/workflow.json`. Keep every workflow inactive.
+2. Open `system/01-request-processor.json`. Select the correct imported workflow in every Execute Sub-workflow node. Replace all `REPLACE_WITH_WORKFLOW_ID_XX` placeholders.
+3. Import `system/00-main-ingress.json`; choose the Request Processor workflow in its Execute Sub-workflow node and assign a Header Auth credential to the ingress Webhook.
+4. Import `system/90-central-error-handler.json`; configure the ops log sheet and alert email, then set it under **Workflow Settings → Error Workflow** for the workflows you want monitored.
+5. Configure each workflow's provider credentials, spreadsheet IDs and headers, recipients, calendar IDs, API versions, media URLs, and model settings in n8n. Never copy secrets into JSON or GitHub.
+6. Test direct Webhook triggers with Header Auth too, or call a workflow through the protected Main Ingress.
 
-## Core system test cases
+## Main request contract
 
-| Test | Input/condition | Expected behavior |
-|---|---|---|
-| Valid lead | `eventType=lead.created`, stable requestId, valid name/email | lead row is recorded and sales notification is attempted |
-| Invalid lead | missing name or invalid email | rejected result; no external write |
-| Replay lead | repeat the same requestId | duplicate result; external side effects skipped; reconcile if prior status remains processing |
-| Score request | `eventType=lead.score_requested`, valid lead data | score/tier returned, score logged, hot-lead notification attempted |
-| Valid support ticket | `eventType=support.ticket.created`, subject and description | ticket row recorded and support notification attempted |
-| Replay ticket | repeat the same requestId | duplicate result; no new ticket notification |
-| Unsupported event | unknown eventType | structured unsupported-event result |
-| Invalid envelope | missing requestId/eventType or non-object data | validation failure response |
-| Provider failure | controlled test credential/permission failure | execution is visibly failed; central error handler logs/alerts if correctly assigned |
+```json
+{
+  "requestId": "stable-client-generated-id",
+  "eventType": "lead.created",
+  "source": "website",
+  "occurredAt": "2026-10-18T08:00:00.000Z",
+  "data": {
+    "name": "Test User",
+    "email": "test@example.com"
+  }
+}
+```
 
-The sheet-based replay check is a small-volume starter, not a strict exactly-once guarantee. Concurrent requests can race; an uncertain provider outcome can leave a `processing` record that requires reconciliation. Use a database with unique constraints and a reviewed retry/dead-letter design for high-volume or critical workloads.
+Use the same `requestId` when retrying one business event. The Main Ingress requires `requestId`, `eventType` and object-valued `data`; unsupported event types should return an explicit error.
 
-## Test evidence for all 20 business workflows
+## System route test matrix
 
-Import every canonical `workflow.json` into a disposable/test n8n project. Replace placeholder nodes, configure credentials, test valid/invalid/duplicate/provider-failure paths, and confirm destination-side effects before activation.
+| # | Event type | Expected child route |
+|---:|---|---|
+| 01 | `lead.created` | Lead Capture & CRM |
+| 02 | `lead.score_requested` | Lead Scoring & Routing |
+| 03 | `email.followup.dispatch` | Email Follow-up Sequence |
+| 04 | `inbox.message.received` | Inbox Triage Assistant |
+| 05 | `support.ticket.created` | Customer Support Desk |
+| 06 | `support.faq.question` | FAQ & Human Handoff |
+| 07 | `meeting.booking.requested` | Meeting Booking System |
+| 08 | `meeting.reminder.dispatch` | Meeting Reminders |
+| 09 | `client.onboarding.start` | Client Onboarding |
+| 10 | `invoice.reminder.dispatch` | Invoice & Payment Reminders |
+| 11 | `content.draft.requested` | Content Creation & Approval |
+| 12 | `instagram.publish.requested` | Instagram Publishing Pipeline |
+| 13 | `youtube.upload.requested` | YouTube Publishing Assistant |
+| 14 | `content.repurpose.requested` | Content Repurposing |
+| 15 | `newsletter.campaign.requested` | Newsletter Campaign Builder |
+| 16 | `business.report.generate` | Weekly Business Reporting |
+| 17 | `feedback.received` | Feedback & Escalation |
+| 18 | `workflow.error.received` | Workflow Error Monitor |
+| 19 | `api.health.check` | API Health Monitor |
+| 20 | `telegram.command.received` | Telegram Business Assistant |
 
-- [ ] 01 Lead Capture & CRM
-- [ ] 02 Lead Scoring & Routing
-- [ ] 03 Email Follow-up Sequence
-- [ ] 04 Inbox Triage Assistant
-- [ ] 05 Customer Support Desk
-- [ ] 06 FAQ & Human Handoff
-- [ ] 07 Meeting Booking System
-- [ ] 08 Meeting Reminders
-- [ ] 09 Client Onboarding
-- [ ] 10 Invoice & Payment Reminders
-- [ ] 11 Content Creation & Approval
-- [ ] 12 Instagram Publishing Pipeline
-- [ ] 13 YouTube Publishing Assistant
-- [ ] 14 Content Repurposing
-- [ ] 15 Newsletter Campaign Builder
-- [ ] 16 Weekly Business Reporting
-- [ ] 17 Feedback & Escalation
-- [ ] 18 Workflow Error Monitor
-- [ ] 19 API Health Monitor
-- [ ] 20 Telegram Business Assistant
+For each event route, test valid input, malformed input, stable-request replay, unsupported event type, a controlled provider failure, and the returned output. Inspect the child execution result and the destination itself—not only the HTTP response.
 
-Record n8n version, workflow name, test date, execution ID, expected/actual result, and pass/fail. Never include tokens or private customer data.
+## Important workflow-specific limits to test
+
+- **Lead and support duplicate checks:** the spreadsheet read-before-write path prevents ordinary repeated requests, but concurrent requests can race. A timeout after the external action may need reconciliation. For high volume/critical use, use a database with a unique constraint or documented provider idempotency key.
+- **Email follow-up and meeting reminders:** state is tracked in Google Sheets. Check that the configured headers match the node mappings and test a repeated schedule run. Overlapping runs can still race.
+- **Meeting booking:** event creation needs valid Calendar permissions and conflict/availability checks appropriate to the business; the current export doesn't prove a conflict-free booking.
+- **Content drafts:** Anthropic API/model credentials, Sheets, and editor email need configuration. Human-review emails are not a live approval callback by themselves; don't assume an editor reply automatically resumes publishing.
+- **Instagram and YouTube:** public publishing/upload requires provider app permissions, IDs, access credentials, media accessibility, and account testing. Publishing/upload output must be checked in the destination service.
+- **Newsletter:** test with an internal audience, verify consent and unsubscribe columns, confirm campaign suppression, and review delivery logs before a real mailing.
+- **Weekly report and health monitor:** report calculations depend on the actual schema; health alerts can repeat during a prolonged outage until durable previous-state/recovery tracking is configured.
+- **Central error handler:** assign it in n8n settings and test a controlled automatic execution failure. Errors in the handler itself require separate visibility.
+
+## Evidence record
+
+For every runtime test, record n8n version, workflow name, test date, execution ID, expected and actual output, pass/fail, and destination-side evidence. Use synthetic data and redact secrets. Do not mark an automation production-ready until the relevant cases pass in your n8n instance.
+
+**Current conclusion:** repository structure, static JSON graph consistency, and route wiring have been addressed; full provider-runtime validation remains outstanding.
