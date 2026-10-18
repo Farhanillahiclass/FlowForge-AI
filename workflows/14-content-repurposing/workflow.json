@@ -174,7 +174,7 @@
         "sendTo": "={{ $('Extract Repurposed Drafts').first().json.editorEmail }}",
         "subject": "Platform-specific content drafts awaiting approval",
         "emailType": "text",
-        "message": "=Request ID: {{ $('Extract Repurposed Drafts').first().json.requestId }}\\nTargets: {{ $('Extract Repurposed Drafts').first().json.targets.join(', ') }}\\n\\n{{ $('Extract Repurposed Drafts').first().json.drafts }}\\n\\nTo continue, submit an approved request through the protected workflow with approved=true and the same requestId.",
+        "message": "=Request ID: {{ $('Extract Repurposed Drafts').first().json.requestId }}\\nTargets: {{ $('Extract Repurposed Drafts').first().json.targets.join(', ') }}\\n\\n{{ $('Extract Repurposed Drafts').first().json.drafts }}\\n\\nAfter human review, send the selected approved draft to its platform-specific publishing workflow through that workflow's protected entry point. This draft workflow does not itself resume after approval.",
         "options": {}
       }
     },
