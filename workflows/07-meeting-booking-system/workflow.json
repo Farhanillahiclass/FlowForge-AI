@@ -28,7 +28,7 @@
       ],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const b=$json.body||$json;const start=Date.parse(b.start);const end=Date.parse(b.end);const email=String(b.email||'').trim().toLowerCase();const valid=!!String(b.name||'').trim()&&/^[^\\\\s@]+@[^\\\\s@]+\\\\.[^\\\\s@]+$/.test(email)&&Number.isFinite(start)&&Number.isFinite(end)&&end>start&&start>Date.now();return [{json:{name:String(b.name||'').trim(),email,start:b.start||'',end:b.end||'',timezone:b.timezone||'UTC',topic:b.topic||'Discovery call',valid,createdAt:new Date().toISOString()}}];"
+        "jsCode": "const b=$json.body||$json; const start=Date.parse(b.start); const end=Date.parse(b.end); const email=String(b.email||'').trim().toLowerCase(); const requestId=String(b.requestId||b.eventId||'').trim(); const valid=!!requestId&&!!String(b.name||'').trim()&&/^[^\\\\s@]+@[^\\\\s@]+\\\\.[^\\\\s@]+$/.test(email)&&Number.isFinite(start)&&Number.isFinite(end)&&end>start&&start>Date.now(); return [{json:{requestId,name:String(b.name||'').trim(),email,start:b.start||'',end:b.end||'',timezone:b.timezone||'UTC',topic:b.topic||'Discovery call',valid,createdAt:new Date().toISOString()}}];"
       }
     },
     {
@@ -75,6 +75,8 @@
         200
       ],
       "parameters": {
+        "resource": "event",
+        "operation": "create",
         "calendar": {
           "__rl": true,
           "value": "REPLACE_WITH_CALENDAR_ID",
@@ -91,35 +93,79 @@
     {
       "id": "success",
       "name": "Return Booking Accepted",
-      "type": "n8n-nodes-base.respondToWebhook",
-      "typeVersion": 1.4,
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
       "position": [
         1210,
         200
       ],
       "parameters": {
-        "respondWith": "json",
-        "responseBody": "={\"ok\":true,\"message\":\"Booking request accepted; verify calendar result.\"}",
-        "options": {
-          "responseCode": 200
-        }
+        "mode": "runOnceForAllItems",
+        "jsCode": "const d=$json||{}; return [{json:{...d,ok:true,status:String(d.status||'completed'),httpStatus:200,requestId:String(d.requestId||d.eventId||d._flowforge?.requestId||'')}}];"
       }
     },
     {
       "id": "bad",
       "name": "Return Invalid Booking",
-      "type": "n8n-nodes-base.respondToWebhook",
-      "typeVersion": 1.4,
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
       "position": [
         960,
         430
       ],
       "parameters": {
-        "respondWith": "json",
-        "responseBody": "={\"ok\":false,\"message\":\"Check name, email, future start and end time.\"}",
-        "options": {
-          "responseCode": 400
+        "mode": "runOnceForAllItems",
+        "jsCode": "const d=$json||{}; return [{json:{...d,ok:false,status:'rejected',httpStatus:400,requestId:String(d.requestId||d.eventId||d._flowforge?.requestId||''),error:String(d.error||'invalid_input')}}];"
+      }
+    },
+    {
+      "id": "subflow-trigger",
+      "name": "Called by Parent Workflow",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -600,
+        560
+      ],
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "requestId",
+              "type": "string"
+            },
+            {
+              "name": "eventType",
+              "type": "string"
+            },
+            {
+              "name": "source",
+              "type": "string"
+            },
+            {
+              "name": "occurredAt",
+              "type": "string"
+            },
+            {
+              "name": "data",
+              "type": "object"
+            }
+          ]
         }
+      }
+    },
+    {
+      "id": "subflow-adapter",
+      "name": "Normalize Parent Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -350,
+        560
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const e=$json||{}; const d=e.data&&typeof e.data==='object'&&!Array.isArray(e.data)?e.data:{}; const requestId=String(e.requestId||e.eventId||''); return [{json:{...d,requestId,eventId:requestId,eventType:String(e.eventType||''),source:String(e.source||'parent-workflow'),occurredAt:String(e.occurredAt||new Date().toISOString()),_flowforge:{requestId,eventType:String(e.eventType||''),source:String(e.source||'parent-workflow')}}}];"
       }
     }
   ],
@@ -169,6 +215,28 @@
         [
           {
             "node": "Return Booking Accepted",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Called by Parent Workflow": {
+      "main": [
+        [
+          {
+            "node": "Normalize Parent Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Parent Payload": {
+      "main": [
+        [
+          {
+            "node": "Validate Booking Fields",
             "type": "main",
             "index": 0
           }
