@@ -28,7 +28,7 @@
       ],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const b=$json.body||$json;const rating=Number(b.rating);const valid=Number.isFinite(rating)&&rating>=1&&rating<=5;const feedback=String(b.feedback||b.message||'').trim();return [{json:{name:String(b.name||''),email:String(b.email||''),rating,feedback,valid,route:valid&&rating<=2?'urgent-review':valid&&rating===3?'follow-up':'positive-feedback',receivedAt:new Date().toISOString()}}];"
+        "jsCode": "const b=$json.body||$json;const rating=Number(b.rating);const email=String(b.email||'').trim().toLowerCase();const requestId=String(b.requestId||b.eventId||'').trim();const feedback=String(b.feedback||b.message||'').trim();const valid=!!requestId&&Number.isFinite(rating)&&rating>=1&&rating<=5&&feedback.length>0;return [{json:{requestId,name:String(b.name||''),email,rating,feedback,valid,route:valid&&rating<=2?'urgent-review':valid&&rating===3?'follow-up':'positive-feedback',receivedAt:new Date().toISOString()}}];"
       }
     },
     {
@@ -66,41 +66,195 @@
     },
     {
       "id": "alert",
-      "name": "Log Feedback and Alert Support — Configure Sheets + Telegram",
-      "type": "n8n-nodes-base.noOp",
-      "typeVersion": 1,
+      "name": "Save Escalated Feedback",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
       "position": [
         960,
         200
       ],
-      "parameters": {}
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "REPLACE_WITH_FEEDBACK_SPREADSHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Feedback",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      }
     },
     {
       "id": "log",
-      "name": "Log Feedback — Configure Sheets/CRM",
-      "type": "n8n-nodes-base.noOp",
-      "typeVersion": 1,
+      "name": "Save General Feedback",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
       "position": [
         960,
         400
       ],
-      "parameters": {}
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "REPLACE_WITH_FEEDBACK_SPREADSHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Feedback",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      }
     },
     {
       "id": "reply",
       "name": "Return Feedback Receipt",
-      "type": "n8n-nodes-base.respondToWebhook",
-      "typeVersion": 1.4,
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
       "position": [
         1200,
         300
       ],
       "parameters": {
-        "respondWith": "json",
-        "responseBody": "={{ JSON.stringify({received:true,result:$json}) }}",
-        "options": {
-          "responseCode": 200
+        "jsCode": "const e=$('Validate Rating and Route Feedback').first().json;return [{json:{ok:true,status:'received',httpStatus:200,requestId:e.requestId,rating:e.rating,route:e.route,escalationAttempted:e.rating<=2}}];"
+      }
+    },
+    {
+      "id": "feedback-valid",
+      "name": "Feedback Valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        480,
+        300
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "valid",
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "support-alert",
+      "name": "Alert Support for Low Rating",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        1000,
+        180
+      ],
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "sendTo": "REPLACE_WITH_SUPPORT_EMAIL",
+        "subject": "Low customer feedback rating: {{ $('Validate Rating and Route Feedback').first().json.rating }}/5",
+        "emailType": "text",
+        "message": "=A low-rated feedback entry needs review.\\nRequest ID: {{ $('Validate Rating and Route Feedback').first().json.requestId }}\\nRating: {{ $('Validate Rating and Route Feedback').first().json.rating }}/5\\nCustomer: {{ $('Validate Rating and Route Feedback').first().json.name }}\\nEmail: {{ $('Validate Rating and Route Feedback').first().json.email }}\\nFeedback: {{ $('Validate Rating and Route Feedback').first().json.feedback }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "feedback-invalid",
+      "name": "Return Invalid Feedback",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        700,
+        480
+      ],
+      "parameters": {
+        "jsCode": "const e=$json;return [{json:{ok:false,status:'rejected',httpStatus:422,requestId:e.requestId||'',error:'invalid_feedback',message:'requestId, a rating from 1 to 5, and feedback text are required'}}];"
+      }
+    },
+    {
+      "id": "subflow-trigger",
+      "name": "Called by Parent Workflow",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -650,
+        560
+      ],
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "requestId",
+              "type": "string"
+            },
+            {
+              "name": "eventType",
+              "type": "string"
+            },
+            {
+              "name": "source",
+              "type": "string"
+            },
+            {
+              "name": "occurredAt",
+              "type": "string"
+            },
+            {
+              "name": "data",
+              "type": "object"
+            }
+          ]
         }
+      }
+    },
+    {
+      "id": "subflow-adapter",
+      "name": "Normalize Parent Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -400,
+        560
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const e=$json||{}; const d=e.data&&typeof e.data==='object'&&!Array.isArray(e.data)?e.data:{}; const requestId=String(e.requestId||e.eventId||''); return [{json:{...d,requestId,eventId:requestId,eventType:String(e.eventType||''),source:String(e.source||'parent-workflow'),occurredAt:String(e.occurredAt||new Date().toISOString()),_flowforge:{requestId,eventType:String(e.eventType||''),source:String(e.source||'parent-workflow')}}}];"
       }
     }
   ],
@@ -120,7 +274,7 @@
       "main": [
         [
           {
-            "node": "Low Rating Needs Escalation?",
+            "node": "Feedback Valid?",
             "type": "main",
             "index": 0
           }
@@ -131,21 +285,32 @@
       "main": [
         [
           {
-            "node": "Log Feedback and Alert Support — Configure Sheets + Telegram",
+            "node": "Save Escalated Feedback",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "Log Feedback — Configure Sheets/CRM",
+            "node": "Save General Feedback",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Log Feedback and Alert Support — Configure Sheets + Telegram": {
+    "Save Escalated Feedback": {
+      "main": [
+        [
+          {
+            "node": "Alert Support for Low Rating",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save General Feedback": {
       "main": [
         [
           {
@@ -156,11 +321,54 @@
         ]
       ]
     },
-    "Log Feedback — Configure Sheets/CRM": {
+    "Feedback Valid?": {
+      "main": [
+        [
+          {
+            "node": "Low Rating Needs Escalation?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Return Invalid Feedback",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Alert Support for Low Rating": {
       "main": [
         [
           {
             "node": "Return Feedback Receipt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Return Invalid Feedback": {
+      "main": []
+    },
+    "Called by Parent Workflow": {
+      "main": [
+        [
+          {
+            "node": "Normalize Parent Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Parent Payload": {
+      "main": [
+        [
+          {
+            "node": "Validate Rating and Route Feedback",
             "type": "main",
             "index": 0
           }
