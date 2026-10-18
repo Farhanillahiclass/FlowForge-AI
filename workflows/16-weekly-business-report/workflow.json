@@ -84,7 +84,7 @@
       ],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const leads=$('Tag Lead Rows').all().map(i=>i.json); const tickets=$('Tag Support Rows').all().map(i=>i.json); const since=Date.now()-7*24*60*60*1000; const recent=(rows)=>rows.filter(r=>{const raw=r.createdAt||r.receivedAt||r.timestamp;const ts=Date.parse(raw||'');return Number.isFinite(ts)&&ts>=since;}).length; const summary={generatedAt:new Date().toISOString(),periodStart:new Date(since).toISOString(),periodEnd:new Date().toISOString(),leadRowsTotal:leads.filter(r=>r.row_number!==undefined||Object.keys(r).length>1).length,supportRowsTotal:tickets.filter(r=>r.row_number!==undefined||Object.keys(r).length>1).length,leadsLast7Days:recent(leads),supportTicketsLast7Days:recent(tickets)}; summary.emailBody='Weekly business report\\\\nPeriod: '+summary.periodStart+' to '+summary.periodEnd+'\\\\nTotal lead rows: '+summary.leadRowsTotal+'\\\\nNew leads (timestamps available, last 7 days): '+summary.leadsLast7Days+'\\\\nTotal support rows: '+summary.supportRowsTotal+'\\\\nNew support tickets (timestamps available, last 7 days): '+summary.supportTicketsLast7Days+'\\\\nGenerated: '+summary.generatedAt+'\\\\nNote: counts depend on your spreadsheet schema and timestamp fields.'; return [{json:summary}];"
+        "jsCode": "const rows=$input.all().map(i=>i.json);const leads=rows.filter(r=>r._reportSource==='lead');const tickets=rows.filter(r=>r._reportSource==='support');const since=Date.now()-7*24*60*60*1000;const recent=items=>items.filter(r=>{const raw=r.createdAt||r.receivedAt||r.timestamp;const ts=Date.parse(raw||'');return Number.isFinite(ts)&&ts>=since;}).length;const summary={generatedAt:new Date().toISOString(),periodStart:new Date(since).toISOString(),periodEnd:new Date().toISOString(),leadRowsTotal:leads.length,supportRowsTotal:tickets.length,leadsLast7Days:recent(leads),supportTicketsLast7Days:recent(tickets)};summary.emailBody='Weekly business report\\nPeriod: '+summary.periodStart+' to '+summary.periodEnd+'\\nTotal lead rows: '+summary.leadRowsTotal+'\\nNew leads (timestamps available, last 7 days): '+summary.leadsLast7Days+'\\nTotal support rows: '+summary.supportRowsTotal+'\\nNew support tickets (timestamps available, last 7 days): '+summary.supportTicketsLast7Days+'\\nGenerated: '+summary.generatedAt+'\\nNote: counts depend on your spreadsheet schema and timestamp fields.';return [{json:summary}];"
       }
     },
     {
@@ -232,6 +232,21 @@
         "mode": "runOnceForAllItems",
         "jsCode": "const e=$json||{}; const d=e.data&&typeof e.data==='object'&&!Array.isArray(e.data)?e.data:{}; const requestId=String(e.requestId||e.eventId||''); return [{json:{...d,requestId,eventId:requestId,eventType:String(e.eventType||''),source:String(e.source||'parent-workflow'),occurredAt:String(e.occurredAt||new Date().toISOString()),_flowforge:{requestId,eventType:String(e.eventType||''),source:String(e.source||'parent-workflow')}}}];"
       }
+    },
+    {
+      "id": "merge-report-inputs",
+      "name": "Merge Lead and Support Rows",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        690,
+        280
+      ],
+      "parameters": {
+        "mode": "append",
+        "numberInputs": 2,
+        "options": {}
+      }
     }
   ],
   "connections": {
@@ -288,7 +303,7 @@
       "main": [
         [
           {
-            "node": "Aggregate Report Inputs",
+            "node": "Merge Lead and Support Rows",
             "type": "main",
             "index": 0
           }
@@ -299,9 +314,9 @@
       "main": [
         [
           {
-            "node": "Aggregate Report Inputs",
+            "node": "Merge Lead and Support Rows",
             "type": "main",
-            "index": 0
+            "index": 1
           }
         ]
       ]
@@ -349,6 +364,17 @@
           },
           {
             "node": "Read Support Metrics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Lead and Support Rows": {
+      "main": [
+        [
+          {
+            "node": "Aggregate Report Inputs",
             "type": "main",
             "index": 0
           }
