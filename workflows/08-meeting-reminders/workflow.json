@@ -52,7 +52,7 @@
       ],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const now=Date.now(); return $input.all().filter(i=>{const start=Date.parse(i.json.start?.dateTime||i.json.start||''); const mins=(start-now)/60000; return Number.isFinite(start)&&mins>=0&&mins<=60&&(i.json.attendees||[]).some(a=>a.email);}).map(i=>({json:{...i.json,reminderDue:true,reminderWindowMinutes:60,reminderRecipient:String((i.json.attendees||[]).find(a=>a.email)?.email||i.json.organizer?.email||''),reminderKey:String(i.json.id||i.json.iCalUID||'')+':60m'}}));"
+        "jsCode": "const now=Date.now();return $input.all().filter(i=>{const e=i.json;const start=Date.parse(e.start?.dateTime||e.start||'');const minutes=(start-now)/60000;return Number.isFinite(start)&&minutes>=0&&minutes<=60&&(e.attendees||[]).some(a=>a.email);}).map(i=>({json:{...i.json,reminderDue:true,reminderWindowMinutes:60,reminderRecipient:String((i.json.attendees||[]).find(a=>a.email)?.email||i.json.organizer?.email||''),reminderKey:String(i.json.id||i.json.iCalUID||'')+':60m'}}));"
       }
     },
     {
@@ -123,6 +123,97 @@
         "mode": "runOnceForAllItems",
         "jsCode": "const e=$json||{}; const d=e.data&&typeof e.data==='object'&&!Array.isArray(e.data)?e.data:{}; const requestId=String(e.requestId||e.eventId||''); return [{json:{...d,requestId,eventId:requestId,eventType:String(e.eventType||''),source:String(e.source||'parent-workflow'),occurredAt:String(e.occurredAt||new Date().toISOString()),_flowforge:{requestId,eventType:String(e.eventType||''),source:String(e.source||'parent-workflow')}}}];"
       }
+    },
+    {
+      "id": "read-reminder-log",
+      "name": "Read Sent Reminder Log",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        900,
+        300
+      ],
+      "parameters": {
+        "operation": "getAll",
+        "documentId": {
+          "__rl": true,
+          "value": "REPLACE_WITH_REMINDER_LOG_SPREADSHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "ReminderLog",
+          "mode": "name"
+        },
+        "returnAll": true,
+        "options": {}
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "id": "dedupe-reminders",
+      "name": "Exclude Already Sent Reminders",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1140,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const events=$('Filter Events Requiring Reminder').all().map(i=>i.json);const logged=$input.all().map(i=>i.json).filter(r=>r&&Object.keys(r).length);const pending=events.filter(e=>!logged.some(r=>String(r.reminderKey||'')===String(e.reminderKey||'')));return pending.map(e=>({json:e}));"
+      }
+    },
+    {
+      "id": "append-reminder-log",
+      "name": "Record Reminder Sent",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        1600,
+        280
+      ],
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "REPLACE_WITH_REMINDER_LOG_SPREADSHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "ReminderLog",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "reminderKey": "={{ $json.reminderKey }}",
+            "eventId": "={{ $json.id || $json.iCalUID || '' }}",
+            "recipient": "={{ $json.reminderRecipient }}",
+            "summary": "={{ $json.summary || '' }}",
+            "sentAt": "={{ new Date().toISOString() }}"
+          },
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "reminder-result",
+      "name": "Return Reminder Send Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1830,
+        280
+      ],
+      "parameters": {
+        "jsCode": "const e=$json;return [{json:{ok:true,status:'reminder-sent',eventId:e.id||e.iCalUID||'',reminderKey:e.reminderKey,recipient:e.reminderRecipient,logged:true}}];"
+      }
     }
   ],
   "connections": {
@@ -152,7 +243,7 @@
       "main": [
         [
           {
-            "node": "Send Meeting Reminder via Gmail",
+            "node": "Read Sent Reminder Log",
             "type": "main",
             "index": 0
           }
@@ -175,6 +266,50 @@
         [
           {
             "node": "Get Upcoming Events — Configure Google Calendar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Sent Reminder Log": {
+      "main": [
+        [
+          {
+            "node": "Exclude Already Sent Reminders",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Exclude Already Sent Reminders": {
+      "main": [
+        [
+          {
+            "node": "Send Meeting Reminder via Gmail",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Meeting Reminder via Gmail": {
+      "main": [
+        [
+          {
+            "node": "Record Reminder Sent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Record Reminder Sent": {
+      "main": [
+        [
+          {
+            "node": "Return Reminder Send Result",
             "type": "main",
             "index": 0
           }
