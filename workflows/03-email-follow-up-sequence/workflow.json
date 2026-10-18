@@ -45,6 +45,56 @@
         300
       ],
       "parameters": {}
+    },
+    {
+      "id": "subflow-trigger",
+      "name": "Called by Parent Workflow",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -500,
+        520
+      ],
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "requestId",
+              "type": "string"
+            },
+            {
+              "name": "eventType",
+              "type": "string"
+            },
+            {
+              "name": "source",
+              "type": "string"
+            },
+            {
+              "name": "occurredAt",
+              "type": "string"
+            },
+            {
+              "name": "data",
+              "type": "object"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "subflow-adapter",
+      "name": "Normalize Parent Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -250,
+        520
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const e=$json||{}; const d=e.data&&typeof e.data==='object'&&!Array.isArray(e.data)?e.data:{}; const requestId=String(e.requestId||e.eventId||''); return [{json:{...d,requestId,eventId:requestId,eventType:String(e.eventType||''),source:String(e.source||'parent-workflow'),occurredAt:String(e.occurredAt||new Date().toISOString()),_flowforge:{requestId,eventType:String(e.eventType||''),source:String(e.source||'parent-workflow')}}}];"
+      }
     }
   ],
   "connections": {
@@ -64,6 +114,28 @@
         [
           {
             "node": "Review Setup Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Called by Parent Workflow": {
+      "main": [
+        [
+          {
+            "node": "Normalize Parent Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Parent Payload": {
+      "main": [
+        [
+          {
+            "node": "Prepare Safe Follow-up Run",
             "type": "main",
             "index": 0
           }
