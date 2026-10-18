@@ -1,44 +1,28 @@
 # 18 — Workflow Error Monitor
 
-**Maintainer:** Muhammad Farhan
+**Maintainer:** Muhammad Farhan  
+**Event type:** `workflow.error.received`  
+**Status:** Static-checked template; Gmail alert execution not yet verified.
 
-## Business goal
-Error Trigger → sanitize context → alert → record failure → link execution.
+## Purpose
 
-## Required credentials and configuration
-Slack/Telegram/Gmail; assign this workflow in n8n workflow settings as an Error Workflow.
+Receive n8n error context from an Error Trigger or parent event, sanitize key execution details, and send a notification to the operations inbox.
 
-- Import [`workflow.json`](./workflow.json) into a **test** n8n instance and confirm node compatibility with your installed version.
-- Configure OAuth/API credentials inside n8n Credentials. Never commit tokens or passwords.
-- Replace sample IDs, recipients, URLs and business rules.
-- Replace every `Configure`, `Connect`, or `No Operation` placeholder with a real action before expecting external side effects.
-- Keep the workflow inactive while testing with synthetic data and accounts you control.
+## Workflow path
 
-## Implementation checklist
-1. Confirm the trigger and required input schema.
-2. Validate required fields and return clear errors for bad input.
-3. Apply business rules, consent, approval and platform requirements.
-4. Persist output and a stable business-event ID.
-5. Connect actual external actions and verify destination-side results.
-6. Add bounded retries/backoff for transient errors and sanitized alerts.
-7. Add durable idempotency so retries do not duplicate side effects.
+`Error Trigger / parent entry → sanitize workflow/execution/error fields → Gmail operator alert`
 
-## Test checklist
-Trigger a controlled failure in an automatically executed test workflow. Alerts should include execution context but no tokens or full private payload.
+## Configuration
 
-- [ ] Valid input produces the expected output.
-- [ ] Missing/malformed input is rejected safely.
-- [ ] Duplicate event is checked within one run and across separate runs.
-- [ ] Provider timeout/permission errors are visible; there is no false success.
-- [ ] Logs and alerts contain no secrets or unnecessary customer data.
+Select Gmail OAuth and replace `REPLACE_WITH_OPS_ALERT_EMAIL`. Import the workflow and assign it under **Workflow Settings → Error Workflow** for workflows whose failures should trigger alerts. The central system workflow `system/90-central-error-handler.json` can also be used for shared monitoring.
 
-## Files in this folder
-- [`workflow.json`](./workflow.json) — n8n workflow export.
-- [`Code.gs`](./Code.gs) — optional Google Sheets Apps Script adapter; use only when the workflow needs it.
+## Tests to run
 
-For Apps Script use, create a separate test spreadsheet/project, set Script Properties `SPREADSHEET_ID` and `FLOWFORGE_TOKEN`, run `setupSheet()`, deploy with an approved access policy, and test success, invalid token, malformed JSON, missing/duplicate request ID, and permission failure.
+Cause a controlled failure in a disposable test workflow, verify this workflow was invoked by the n8n Error Workflow setting, and confirm the email contains workflow name, execution ID/URL, last node, sanitized error and timestamp. Test a missing/large error message and Gmail failure.
 
-## Status and limitations
-This file is a workflow template, not proof of a live end-to-end test. JSON/static checks do not prove n8n import compatibility, valid provider parameters, credentials, or successful API calls. Import and test the workflow, record the n8n version and execution evidence, and only then call it production-ready.
+## Limits
 
-See [shared credentials guidance](../CREDENTIALS-GUIDE.md) and [testing report](../../TESTING-AND-VALIDATION.md).
+This workflow sends email alerts but does not currently persist an error row itself. Alert failure inside the handler can hide additional failures unless the handler has its own independent monitoring. Do not include credentials or full customer payloads in error notifications.
+
+Files: [workflow.json](./workflow.json) · [Code.gs](./Code.gs)  
+Shared guides: [credentials](../CREDENTIALS-GUIDE.md) · [testing](../../TESTING-AND-VALIDATION.md)
