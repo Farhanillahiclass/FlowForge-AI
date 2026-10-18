@@ -1,44 +1,32 @@
 # 13 — YouTube Publishing Assistant
 
-**Maintainer:** Muhammad Farhan
+**Maintainer:** Muhammad Farhan  
+**Event type:** `youtube.upload.requested`  
+**Status:** Static-checked template; YouTube OAuth/upload execution not yet verified.
 
-## Business goal
-Metadata → validate → approval → upload binary → metadata/visibility → poll processing.
+## Purpose
 
-## Required credentials and configuration
-YouTube Data API OAuth and actual video binary/file source.
+Validate a video metadata request, wait for explicit approval, fetch the video binary from a reachable HTTPS URL, and upload it using n8n's native YouTube node.
 
-- Import [`workflow.json`](./workflow.json) into a **test** n8n instance and confirm node compatibility with your installed version.
-- Configure OAuth/API credentials inside n8n Credentials. Never commit tokens or passwords.
-- Replace sample IDs, recipients, URLs and business rules.
-- Replace every `Configure`, `Connect`, or `No Operation` placeholder with a real action before expecting external side effects.
-- Keep the workflow inactive while testing with synthetic data and accounts you control.
+## Input contract
 
-## Implementation checklist
-1. Confirm the trigger and required input schema.
-2. Validate required fields and return clear errors for bad input.
-3. Apply business rules, consent, approval and platform requirements.
-4. Persist output and a stable business-event ID.
-5. Connect actual external actions and verify destination-side results.
-6. Add bounded retries/backoff for transient errors and sanitized alerts.
-7. Add durable idempotency so retries do not duplicate side effects.
+Required: `requestId`, `title`, `description`, and a downloadable `videoUrl` that begins with HTTPS. Optional: `tags` array and `visibility`. A new request without Boolean `approved: true` returns `pending-approval`. Visibility defaults to private; trusted callers can request public or unlisted visibility when approved.
 
-## Test checklist
-Test private upload, binary source, quota errors and processing completion with an account you control.
+## Workflow path
 
-- [ ] Valid input produces the expected output.
-- [ ] Missing/malformed input is rejected safely.
-- [ ] Duplicate event is checked within one run and across separate runs.
-- [ ] Provider timeout/permission errors are visible; there is no false success.
-- [ ] Logs and alerts contain no secrets or unnecessary customer data.
+`Header Auth Webhook / parent entry → validate metadata → approved? → download binary → native YouTube Upload → return video ID/result`
 
-## Files in this folder
-- [`workflow.json`](./workflow.json) — n8n workflow export.
-- [`Code.gs`](./Code.gs) — optional Google Sheets Apps Script adapter; use only when the workflow needs it.
+## Configuration
 
-For Apps Script use, create a separate test spreadsheet/project, set Script Properties `SPREADSHEET_ID` and `FLOWFORGE_TOKEN`, run `setupSheet()`, deploy with an approved access policy, and test success, invalid token, malformed JSON, missing/duplicate request ID, and permission failure.
+Select YouTube OAuth credentials that have permission to upload to the intended channel. The native node uses region code `US`, category ID `22`, tags and the configured privacy status. The URL must be downloadable by n8n without an interactive login page; the file must fit your instance's memory, execution timeout and provider limits.
 
-## Status and limitations
-This file is a workflow template, not proof of a live end-to-end test. JSON/static checks do not prove n8n import compatibility, valid provider parameters, credentials, or successful API calls. Import and test the workflow, record the n8n version and execution evidence, and only then call it production-ready.
+## Tests to run
 
-See [shared credentials guidance](../CREDENTIALS-GUIDE.md) and [testing report](../../TESTING-AND-VALIDATION.md).
+Test missing title/description, invalid request ID, inaccessible URL, a large video within safe test limits, `approved: false`, OAuth failure, upload failure, and each privacy mode. Check the video and final visibility in YouTube Studio.
+
+## Safety and limits
+
+The `approved` Boolean is a caller-supplied gate, not a persisted reviewer approval. Keep untrusted callers from selecting public visibility. Upload success and final processing are different states; the workflow does not yet poll processing status or reconcile an upload that times out after YouTube accepted it. Test binary handling and node-schema compatibility on your n8n version.
+
+Files: [workflow.json](./workflow.json) · [Code.gs](./Code.gs)  
+Shared guides: [credentials](../CREDENTIALS-GUIDE.md) · [testing](../../TESTING-AND-VALIDATION.md)
