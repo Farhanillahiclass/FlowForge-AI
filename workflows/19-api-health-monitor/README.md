@@ -1,44 +1,28 @@
 # 19 — API Health Monitor
 
-**Maintainer:** Muhammad Farhan
+**Maintainer:** Muhammad Farhan  
+**Event type:** `api.health.check`  
+**Status:** Static-checked template; scheduled HTTP/Gmail execution not yet verified.
 
-## Business goal
-Schedule → HTTP checks/timeouts → normalize → compare state → failure/recovery alert.
+## Purpose
 
-## Required credentials and configuration
-HTTP endpoints, notification channel and optional state store.
+Run periodic GET requests against two sample public endpoints (GitHub API and Open-Meteo), evaluate the response/error outcome, and email operations when an endpoint is unhealthy.
 
-- Import [`workflow.json`](./workflow.json) into a **test** n8n instance and confirm node compatibility with your installed version.
-- Configure OAuth/API credentials inside n8n Credentials. Never commit tokens or passwords.
-- Replace sample IDs, recipients, URLs and business rules.
-- Replace every `Configure`, `Connect`, or `No Operation` placeholder with a real action before expecting external side effects.
-- Keep the workflow inactive while testing with synthetic data and accounts you control.
+## Workflow path
 
-## Implementation checklist
-1. Confirm the trigger and required input schema.
-2. Validate required fields and return clear errors for bad input.
-3. Apply business rules, consent, approval and platform requirements.
-4. Persist output and a stable business-event ID.
-5. Connect actual external actions and verify destination-side results.
-6. Add bounded retries/backoff for transient errors and sanitized alerts.
-7. Add durable idempotency so retries do not duplicate side effects.
+`Daily Schedule / parent entry → HTTP checks in parallel → normalize health results → unhealthy? → Gmail alert or healthy result`
 
-## Test checklist
-Test 2xx, 4xx/5xx, timeout and recovery. Add state tracking to prevent alert spam.
+## Configuration
 
-- [ ] Valid input produces the expected output.
-- [ ] Missing/malformed input is rejected safely.
-- [ ] Duplicate event is checked within one run and across separate runs.
-- [ ] Provider timeout/permission errors are visible; there is no false success.
-- [ ] Logs and alerts contain no secrets or unnecessary customer data.
+Replace `REPLACE_WITH_OPS_ALERT_EMAIL` and select Gmail OAuth credentials. Update the endpoints to the APIs your organization actually depends on. The HTTP nodes have a 10-second timeout and continue on node errors so the evaluation/alert path can inspect failures.
 
-## Files in this folder
-- [`workflow.json`](./workflow.json) — n8n workflow export.
-- [`Code.gs`](./Code.gs) — optional Google Sheets Apps Script adapter; use only when the workflow needs it.
+## Tests to run
 
-For Apps Script use, create a separate test spreadsheet/project, set Script Properties `SPREADSHEET_ID` and `FLOWFORGE_TOKEN`, run `setupSheet()`, deploy with an approved access policy, and test success, invalid token, malformed JSON, missing/duplicate request ID, and permission failure.
+Test normal responses, HTTP error status, DNS/network failure, timeout, invalid endpoint, Gmail failure and multiple simultaneous unhealthy endpoints. Confirm the alert includes the target, status/error and check timestamp.
 
-## Status and limitations
-This file is a workflow template, not proof of a live end-to-end test. JSON/static checks do not prove n8n import compatibility, valid provider parameters, credentials, or successful API calls. Import and test the workflow, record the n8n version and execution evidence, and only then call it production-ready.
+## Limits
 
-See [shared credentials guidance](../CREDENTIALS-GUIDE.md) and [testing report](../../TESTING-AND-VALIDATION.md).
+The two endpoints are examples, not a monitoring plan for your real services. The current workflow does not store the previous state; it may alert on every schedule while an outage persists and does not generate a reliable recovery-only alert. Add durable state, severity/threshold policy and deduplication before using it for production operations.
+
+Files: [workflow.json](./workflow.json) · [Code.gs](./Code.gs)  
+Shared guides: [credentials](../CREDENTIALS-GUIDE.md) · [testing](../../TESTING-AND-VALIDATION.md)
