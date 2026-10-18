@@ -1,44 +1,37 @@
 # 20 — Telegram Business Assistant
 
-**Maintainer:** Muhammad Farhan
+**Maintainer:** Muhammad Farhan  
+**Event type:** `telegram.command.received`  
+**Status:** Static-checked template; live Telegram/Sheets/Gmail execution not yet verified.
 
-## Business goal
-Telegram Trigger → parse commands → validate → CRM/ticket action → reply.
+## Purpose
 
-## Required credentials and configuration
-Telegram bot credential; optional Sheets/CRM and support channel.
+Parse incoming Telegram-style update data, route `/start`, `/help`, `/lead`, and `/support` commands, persist new lead/support requests, and respond in the originating chat. Unknown commands receive a help response.
 
-- Import [`workflow.json`](./workflow.json) into a **test** n8n instance and confirm node compatibility with your installed version.
-- Configure OAuth/API credentials inside n8n Credentials. Never commit tokens or passwords.
-- Replace sample IDs, recipients, URLs and business rules.
-- Replace every `Configure`, `Connect`, or `No Operation` placeholder with a real action before expecting external side effects.
-- Keep the workflow inactive while testing with synthetic data and accounts you control.
+## Supported commands
 
-## Implementation checklist
-1. Confirm the trigger and required input schema.
-2. Validate required fields and return clear errors for bad input.
-3. Apply business rules, consent, approval and platform requirements.
-4. Persist output and a stable business-event ID.
-5. Connect actual external actions and verify destination-side results.
-6. Add bounded retries/backoff for transient errors and sanitized alerts.
-7. Add durable idempotency so retries do not duplicate side effects.
+- `/start` — send a welcome message.
+- `/help` — show the command menu.
+- `/lead Full Name | email@example.com | Company` — validate and save a lead.
+- `/support Describe your issue here` — save a support request, email the support inbox, and acknowledge the user.
 
-## Test checklist
-Use a private test chat. Use a Telegram Trigger for inbound updates and actual Send Message nodes for replies.
+The Telegram update should provide `message.text` and `message.chat.id`; a stable `update_id` is used as the request ID when present.
 
-- [ ] Valid input produces the expected output.
-- [ ] Missing/malformed input is rejected safely.
-- [ ] Duplicate event is checked within one run and across separate runs.
-- [ ] Provider timeout/permission errors are visible; there is no false success.
-- [ ] Logs and alerts contain no secrets or unnecessary customer data.
+## Workflow path
 
-## Files in this folder
-- [`workflow.json`](./workflow.json) — n8n workflow export.
-- [`Code.gs`](./Code.gs) — optional Google Sheets Apps Script adapter; use only when the workflow needs it.
+`Header Auth Webhook / parent entry → parse command → Switch → Telegram response, Google Sheets lead save, or support-ticket log + Gmail handoff`
 
-For Apps Script use, create a separate test spreadsheet/project, set Script Properties `SPREADSHEET_ID` and `FLOWFORGE_TOKEN`, run `setupSheet()`, deploy with an approved access policy, and test success, invalid token, malformed JSON, missing/duplicate request ID, and permission failure.
+## Configuration
 
-## Status and limitations
-This file is a workflow template, not proof of a live end-to-end test. JSON/static checks do not prove n8n import compatibility, valid provider parameters, credentials, or successful API calls. Import and test the workflow, record the n8n version and execution evidence, and only then call it production-ready.
+Select Telegram, Google Sheets and Gmail credentials. Replace `REPLACE_WITH_LEADS_SPREADSHEET_ID`, `REPLACE_WITH_SUPPORT_SPREADSHEET_ID`, and `REPLACE_WITH_SUPPORT_EMAIL`. Create `Leads` and `SupportTickets` tabs. If Telegram calls the Webhook directly, configure Header Auth to match an appropriate secret header that your Telegram delivery setup can send, or route requests through a trusted gateway.
 
-See [shared credentials guidance](../CREDENTIALS-GUIDE.md) and [testing report](../../TESTING-AND-VALIDATION.md).
+## Tests to run
+
+Test each command, malformed lead format, invalid email, short support text, unknown command, missing chat ID, repeated `update_id`, and each provider permission failure. Use a test bot and test sheets only.
+
+## Limits and security
+
+The workflow uses a Webhook to receive Telegram update-shaped JSON; it is not connected to a native Telegram Trigger node. The `/lead` and `/support` actions currently don't deduplicate by a persistent update ID before writing. Restrict callers at the gateway/webhook, don't expose the webhook publicly without authentication, and add a durable unique key before production.
+
+Files: [workflow.json](./workflow.json) · [Code.gs](./Code.gs)  
+Shared guides: [credentials](../CREDENTIALS-GUIDE.md) · [testing](../../TESTING-AND-VALIDATION.md)
