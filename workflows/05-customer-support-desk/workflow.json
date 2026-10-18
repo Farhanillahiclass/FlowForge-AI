@@ -68,35 +68,79 @@
     {
       "id": "ok",
       "name": "Return Ticket Details",
-      "type": "n8n-nodes-base.respondToWebhook",
-      "typeVersion": 1.4,
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
       "position": [
         950,
         220
       ],
       "parameters": {
-        "respondWith": "json",
-        "responseBody": "={{ JSON.stringify($json) }}",
-        "options": {
-          "responseCode": 200
-        }
+        "mode": "runOnceForAllItems",
+        "jsCode": "const d=$json||{}; return [{json:{...d,ok:true,status:String(d.status||'completed'),httpStatus:200,requestId:String(d.requestId||d.eventId||d._flowforge?.requestId||'')}}];"
       }
     },
     {
       "id": "bad",
       "name": "Return Validation Error",
-      "type": "n8n-nodes-base.respondToWebhook",
-      "typeVersion": 1.4,
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
       "position": [
         950,
         420
       ],
       "parameters": {
-        "respondWith": "json",
-        "responseBody": "={\"ok\":false,\"message\":\"A valid email and message are required\"}",
-        "options": {
-          "responseCode": 400
+        "mode": "runOnceForAllItems",
+        "jsCode": "const d=$json||{}; return [{json:{...d,ok:false,status:'rejected',httpStatus:400,requestId:String(d.requestId||d.eventId||d._flowforge?.requestId||''),error:String(d.error||'invalid_input')}}];"
+      }
+    },
+    {
+      "id": "subflow-trigger",
+      "name": "Called by Parent Workflow",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -500,
+        520
+      ],
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "requestId",
+              "type": "string"
+            },
+            {
+              "name": "eventType",
+              "type": "string"
+            },
+            {
+              "name": "source",
+              "type": "string"
+            },
+            {
+              "name": "occurredAt",
+              "type": "string"
+            },
+            {
+              "name": "data",
+              "type": "object"
+            }
+          ]
         }
+      }
+    },
+    {
+      "id": "subflow-adapter",
+      "name": "Normalize Parent Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -250,
+        520
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const e=$json||{}; const d=e.data&&typeof e.data==='object'&&!Array.isArray(e.data)?e.data:{}; const requestId=String(e.requestId||e.eventId||''); return [{json:{...d,requestId,eventId:requestId,eventType:String(e.eventType||''),source:String(e.source||'parent-workflow'),occurredAt:String(e.occurredAt||new Date().toISOString()),_flowforge:{requestId,eventType:String(e.eventType||''),source:String(e.source||'parent-workflow')}}}];"
       }
     }
   ],
@@ -135,6 +179,28 @@
         [
           {
             "node": "Return Validation Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Called by Parent Workflow": {
+      "main": [
+        [
+          {
+            "node": "Normalize Parent Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Parent Payload": {
+      "main": [
+        [
+          {
+            "node": "Validate and Classify Ticket",
             "type": "main",
             "index": 0
           }
