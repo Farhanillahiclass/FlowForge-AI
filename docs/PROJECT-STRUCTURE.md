@@ -2,34 +2,34 @@
 
 ## Canonical source of truth
 
-Every business workflow lives in one directory under `workflows/<number>-<slug>/`:
+Every business automation is stored in one directory under `workflows/<number>-<slug>/`:
 
-- `README.md` — goal, required integrations, setup, tests, limitations.
-- `workflow.json` — canonical n8n import/export.
-- `Code.gs` — optional Google Apps Script adapter.
+- `README.md` — goal, required integrations, setup, test cases and limitations.
+- `workflow.json` — canonical n8n export.
+- `Code.gs` — optional Google Apps Script adapter for workflows that use it.
 
-The former root-level numbered JSON exports and parallel `apps-script/` and `workflow-guides/` mirror trees have been removed after their content was consolidated into each workflow's README. Do not recreate these mirrors.
+The duplicate root-level numbered workflow JSON exports and mirrored `apps-script/` / `workflow-guides/` directories have been removed. The duplicate system demo child workflows have also been removed: Request Processor now calls the canonical 20 business folders directly. Do not recreate secondary copies.
 
 ## System layer
 
-- `system/00-main-ingress.json`: Header Auth webhook and envelope validation.
-- `system/01-request-processor.json`: event routing and Execute Sub-workflow calls.
-- `system/10-lead-capture-subflow.json`, `11-lead-scoring-subflow.json`, `12-support-ticket-subflow.json`: example business children.
-- `system/90-central-error-handler.json`: sanitized error log and operator alert.
-- `docs/ARCHITECTURE.md`: system layers, reliability boundaries and deployment setup.
+- `system/00-main-ingress.json`: Header Auth Webhook, envelope validation and request/response orchestration.
+- `system/01-request-processor.json`: 20 event types and 20 Execute Sub-workflow nodes.
+- `system/90-central-error-handler.json`: sanitized failure log and operator notification.
+- `docs/ARCHITECTURE.md`: layers, event contract and reliability limits.
 
-Child workflow IDs and credentials live in the target n8n instance and must be selected after import.
+Workflow IDs are specific to each n8n instance and must be selected after import. No live workflow IDs or provider credentials belong in GitHub.
 
-## Pull-request checklist
+## Pull request checklist
 
-1. Change canonical files only.
-2. Update the workflow README when its trigger, inputs, outputs, credentials, or limitations change.
-3. Never commit tokens, production identifiers, or private customer records.
-4. Run `python scripts/validate_workflows.py`.
-5. Review GitHub Actions.
-6. Explicitly distinguish static validation from real n8n execution.
-7. Include sanitized evidence for any live-test claim.
+1. Change canonical workflow files; don't make a second JSON mirror.
+2. Update the workflow README if inputs, outputs, triggers, credentials or limitations change.
+3. Keep shared system routes aligned with canonical workflow names and event types.
+4. Never commit tokens, private customer records, or production identifiers.
+5. Run `python scripts/validate_workflows.py`.
+6. Review GitHub Actions.
+7. State explicitly whether validation is static-only or includes execution evidence in a test n8n runtime.
+8. Keep workflow exports inactive until live tests have been reviewed.
 
 ## Validation boundaries
 
-Automated checks validate repository structure and basic JSON graph consistency. They do not validate every provider node schema, credentials, remote API behavior, or production safety. Those require import and controlled execution in a test n8n environment.
+Automated validation checks canonical structure, required files, JSON parsing, node IDs/names, connection targets, webhook auth settings, no-op placeholders, duplicate mirrors, and route count. It does not validate every provider node parameter, credentials, API permissions, or production behavior.
