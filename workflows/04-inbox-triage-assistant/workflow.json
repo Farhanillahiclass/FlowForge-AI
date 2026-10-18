@@ -14,7 +14,8 @@
         "httpMethod": "POST",
         "path": "inbox-triage",
         "responseMode": "lastNode",
-        "options": {}
+        "options": {},
+        "authentication": "headerAuth"
       }
     },
     {
@@ -28,7 +29,7 @@
       ],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const b=$json.body||$json; const subject=String(b.subject||''); const text=String(b.text||b.snippet||''); const content=(subject+' '+text).toLowerCase(); const priority=/urgent|asap|blocked|outage|security|payment failed/.test(content)?'high':'normal'; const category=/invoice|payment|refund|billing/.test(content)?'billing':/bug|error|crash|not working|access/.test(content)?'technical':/meeting|schedule|calendar/.test(content)?'scheduling':'general'; return [{json:{from:String(b.from||''),subject,text,priority,category,needsHuman:true,receivedAt:new Date().toISOString()}}];"
+        "jsCode": "const b=$json.body||$json;const subject=String(b.subject||'');const text=String(b.text||b.snippet||'');const email=String(b.from||b.email||'');const requestId=String(b.requestId||b.messageId||b.id||'inbox-'+Date.now());const content=(subject+' '+text).toLowerCase();const priority=/urgent|asap|blocked|outage|security|payment failed/.test(content)?'high':'normal';const category=/invoice|payment|refund|billing/.test(content)?'billing':/bug|error|crash|not working|access/.test(content)?'technical':/meeting|schedule|calendar/.test(content)?'scheduling':'general';return [{json:{requestId,from:email,subject,text,priority,category,needsHuman:true,receivedAt:new Date().toISOString(),status:priority==='high'?'urgent-review':'queued'}}];"
       }
     },
     {
@@ -66,25 +67,63 @@
     },
     {
       "id": "urgent",
-      "name": "Urgent Alert — Connect Slack or Telegram",
-      "type": "n8n-nodes-base.noOp",
-      "typeVersion": 1,
+      "name": "Alert Support for Urgent Email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
       "position": [
         950,
         200
       ],
-      "parameters": {}
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "sendTo": "REPLACE_WITH_SUPPORT_EMAIL",
+        "subject": "[Urgent inbox] {{ $('Classify and Normalize Email').first().json.subject }}",
+        "emailType": "text",
+        "message": "=Urgent inbound email needs review.\\nRequest ID: {{ $('Classify and Normalize Email').first().json.requestId }}\\nFrom: {{ $('Classify and Normalize Email').first().json.from }}\\nSubject: {{ $('Classify and Normalize Email').first().json.subject }}\\nCategory: {{ $('Classify and Normalize Email').first().json.category }}\\n\\n{{ $('Classify and Normalize Email').first().json.text }}",
+        "options": {}
+      }
     },
     {
       "id": "normal",
-      "name": "Queue — Connect Helpdesk or Sheets",
-      "type": "n8n-nodes-base.noOp",
-      "typeVersion": 1,
+      "name": "Save Normal Email to Queue",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
       "position": [
         950,
         400
       ],
-      "parameters": {}
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "REPLACE_WITH_INBOX_SPREADSHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "InboxQueue",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "requestId": "={{ $('Classify and Normalize Email').first().json.requestId }}",
+            "from": "={{ $('Classify and Normalize Email').first().json.from }}",
+            "subject": "={{ $('Classify and Normalize Email').first().json.subject }}",
+            "text": "={{ $('Classify and Normalize Email').first().json.text }}",
+            "priority": "={{ $('Classify and Normalize Email').first().json.priority }}",
+            "category": "={{ $('Classify and Normalize Email').first().json.category }}",
+            "status": "queued",
+            "receivedAt": "={{ $('Classify and Normalize Email').first().json.receivedAt }}"
+          },
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      }
     },
     {
       "id": "subflow-trigger",
@@ -135,6 +174,73 @@
         "mode": "runOnceForAllItems",
         "jsCode": "const e=$json||{}; const d=e.data&&typeof e.data==='object'&&!Array.isArray(e.data)?e.data:{}; const requestId=String(e.requestId||e.eventId||''); return [{json:{...d,requestId,eventId:requestId,eventType:String(e.eventType||''),source:String(e.source||'parent-workflow'),occurredAt:String(e.occurredAt||new Date().toISOString()),_flowforge:{requestId,eventType:String(e.eventType||''),source:String(e.source||'parent-workflow')}}}];"
       }
+    },
+    {
+      "id": "urgent-log",
+      "name": "Log Urgent Email",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        950,
+        100
+      ],
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "REPLACE_WITH_INBOX_SPREADSHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "InboxQueue",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "requestId": "={{ $('Classify and Normalize Email').first().json.requestId }}",
+            "from": "={{ $('Classify and Normalize Email').first().json.from }}",
+            "subject": "={{ $('Classify and Normalize Email').first().json.subject }}",
+            "text": "={{ $('Classify and Normalize Email').first().json.text }}",
+            "priority": "={{ $('Classify and Normalize Email').first().json.priority }}",
+            "category": "={{ $('Classify and Normalize Email').first().json.category }}",
+            "status": "urgent-review",
+            "receivedAt": "={{ $('Classify and Normalize Email').first().json.receivedAt }}"
+          },
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "urgent-result",
+      "name": "Return Urgent Triage Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1220,
+        100
+      ],
+      "parameters": {
+        "jsCode": "const e=$('Classify and Normalize Email').first().json;return [{json:{ok:true,status:'urgent-review',httpStatus:202,requestId:e.requestId,priority:e.priority,category:e.category,alertAttempted:true}}];"
+      }
+    },
+    {
+      "id": "normal-result",
+      "name": "Return Queued Triage Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1220,
+        400
+      ],
+      "parameters": {
+        "jsCode": "const e=$('Classify and Normalize Email').first().json;return [{json:{ok:true,status:'queued',httpStatus:202,requestId:e.requestId,priority:e.priority,category:e.category,alertAttempted:false}}];"
+      }
     }
   ],
   "connections": {
@@ -164,14 +270,47 @@
       "main": [
         [
           {
-            "node": "Urgent Alert — Connect Slack or Telegram",
+            "node": "Log Urgent Email",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "Queue — Connect Helpdesk or Sheets",
+            "node": "Save Normal Email to Queue",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Urgent Email": {
+      "main": [
+        [
+          {
+            "node": "Alert Support for Urgent Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Alert Support for Urgent Email": {
+      "main": [
+        [
+          {
+            "node": "Return Urgent Triage Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Normal Email to Queue": {
+      "main": [
+        [
+          {
+            "node": "Return Queued Triage Result",
             "type": "main",
             "index": 0
           }
