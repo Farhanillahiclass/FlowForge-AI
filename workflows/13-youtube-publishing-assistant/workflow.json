@@ -28,7 +28,7 @@
       ],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const b=$json.body||$json; const title=String(b.title||'').trim(); const description=String(b.description||'').trim(); const tags=Array.isArray(b.tags)?b.tags:[]; const videoUrl=String(b.videoUrl||'').trim(); const requestId=String(b.requestId||b.eventId||'').trim(); const approved=b.approved===true; const valid=!!requestId&&title.length>0&&description.length>0&&/^https:\\/\\//i.test(videoUrl); return [{json:{requestId,title,description,tags,videoUrl,valid,approved,visibility:b.visibility==='public'?'unlisted':(b.visibility||'private'),approvalRequired:true,status:!valid?'invalid-input':approved?'approved-for-upload':'pending-approval',submittedAt:new Date().toISOString()}}];"
+        "jsCode": "const b=$json.body||$json; const title=String(b.title||'').trim(); const description=String(b.description||'').trim(); const tags=Array.isArray(b.tags)?b.tags:[]; const videoUrl=String(b.videoUrl||'').trim(); const requestId=String(b.requestId||b.eventId||'').trim(); const approved=b.approved===true; const visibility=approved&&b.visibility==='public'?'public':approved&&b.visibility==='unlisted'?'unlisted':'private'; const valid=!!requestId&&title.length>0&&description.length>0&&/^https:\\/\\//i.test(videoUrl); return [{json:{requestId,title,description,tags,videoUrl,valid,approved,visibility,approvalRequired:true,status:!valid?'invalid-input':approved?'approved-for-upload':'pending-approval',submittedAt:new Date().toISOString()}}];"
       }
     },
     {
@@ -78,9 +78,12 @@
         "method": "GET",
         "url": "={{ $('Validate Metadata and Default Private').first().json.videoUrl }}",
         "options": {
+          "timeout": 300000,
           "response": {
-            "responseFormat": "file",
-            "outputPropertyName": "data"
+            "response": {
+              "responseFormat": "file",
+              "outputPropertyName": "data"
+            }
           }
         }
       }
@@ -134,79 +137,6 @@
       }
     },
     {
-      "id": "init-upload",
-      "name": "Initiate YouTube Resumable Upload",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        1080,
-        150
-      ],
-      "parameters": {
-        "method": "POST",
-        "url": "https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable&part=snippet,status",
-        "authentication": "predefinedCredentialType",
-        "nodeCredentialType": "youTubeOAuth2Api",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "Content-Type",
-              "value": "application/json; charset=UTF-8"
-            },
-            {
-              "name": "X-Upload-Content-Type",
-              "value": "application/octet-stream"
-            }
-          ]
-        },
-        "sendBody": true,
-        "contentType": "json",
-        "specifyBody": "json",
-        "jsonBody": "={{ {snippet:{title:$('Validate Metadata and Default Private').first().json.title,description:$('Validate Metadata and Default Private').first().json.description,tags:$('Validate Metadata and Default Private').first().json.tags},status:{privacyStatus:$('Validate Metadata and Default Private').first().json.visibility}} }}",
-        "options": {
-          "response": {
-            "responseFormat": "json",
-            "includeResponseHeadersAndStatus": true
-          }
-        }
-      }
-    },
-    {
-      "id": "upload-media",
-      "name": "Upload Video Bytes",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        1320,
-        150
-      ],
-      "parameters": {
-        "method": "PUT",
-        "url": "={{ $('Initiate YouTube Resumable Upload').first().json.headers.location }}",
-        "authentication": "predefinedCredentialType",
-        "nodeCredentialType": "youTubeOAuth2Api",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "Content-Type",
-              "value": "application/octet-stream"
-            }
-          ]
-        },
-        "sendBody": true,
-        "contentType": "binaryData",
-        "inputDataFieldName": "data",
-        "options": {
-          "response": {
-            "responseFormat": "json",
-            "includeResponseHeadersAndStatus": true
-          }
-        }
-      }
-    },
-    {
       "id": "upload-result",
       "name": "Return YouTube Upload Result",
       "type": "n8n-nodes-base.code",
@@ -216,7 +146,7 @@
         150
       ],
       "parameters": {
-        "jsCode": "const u=$json||{}; const e=$('Validate Metadata and Default Private').first().json; return [{json:{ok:true,status:'uploaded',httpStatus:200,requestId:e.requestId,videoId:u.id||'',title:e.title,visibility:e.visibility,approvalRecorded:e.approved}}];"
+        "jsCode": "const u=$json||{}; const e=$('Validate Metadata and Default Private').first().json; return [{json:{ok:true,status:'uploaded',httpStatus:200,requestId:e.requestId,videoId:u.id||'',title:e.title,visibility:e.visibility,approvalRecorded:e.approved,note:'Verify final visibility and processing status in YouTube Studio'}}];"
       }
     },
     {
@@ -280,6 +210,31 @@
       "parameters": {
         "mode": "runOnceForAllItems",
         "jsCode": "const e=$json||{}; const d=e.data&&typeof e.data==='object'&&!Array.isArray(e.data)?e.data:{}; const requestId=String(e.requestId||e.eventId||''); return [{json:{...d,requestId,eventId:requestId,eventType:String(e.eventType||''),source:String(e.source||'parent-workflow'),occurredAt:String(e.occurredAt||new Date().toISOString()),_flowforge:{requestId,eventType:String(e.eventType||''),source:String(e.source||'parent-workflow')}}}];"
+      }
+    },
+    {
+      "id": "upload-native",
+      "name": "Upload Video to YouTube",
+      "type": "n8n-nodes-base.youTube",
+      "typeVersion": 1,
+      "position": [
+        1320,
+        150
+      ],
+      "parameters": {
+        "resource": "video",
+        "operation": "upload",
+        "title": "={{ $('Validate Metadata and Default Private').first().json.title }}",
+        "regionCode": "US",
+        "categoryId": "22",
+        "binaryProperty": "data",
+        "options": {
+          "description": "={{ $('Validate Metadata and Default Private').first().json.description }}",
+          "tags": "={{ $('Validate Metadata and Default Private').first().json.tags.join(', ') }}",
+          "privacyStatus": "={{ $('Validate Metadata and Default Private').first().json.visibility }}",
+          "notifySubscribers": false,
+          "selfDeclaredMadeForKids": false
+        }
       }
     }
   ],
@@ -346,29 +301,7 @@
       "main": [
         [
           {
-            "node": "Initiate YouTube Resumable Upload",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Initiate YouTube Resumable Upload": {
-      "main": [
-        [
-          {
-            "node": "Upload Video Bytes",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Upload Video Bytes": {
-      "main": [
-        [
-          {
-            "node": "Return YouTube Upload Result",
+            "node": "Upload Video to YouTube",
             "type": "main",
             "index": 0
           }
@@ -391,6 +324,17 @@
         [
           {
             "node": "Validate Metadata and Default Private",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload Video to YouTube": {
+      "main": [
+        [
+          {
+            "node": "Return YouTube Upload Result",
             "type": "main",
             "index": 0
           }
