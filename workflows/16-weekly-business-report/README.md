@@ -1,44 +1,32 @@
 # 16 — Weekly Business Reporting
 
-**Maintainer:** Muhammad Farhan
+**Maintainer:** Muhammad Farhan  
+**Event type:** `business.report.generate`  
+**Status:** Static-checked template; Sheets/Gmail execution not yet verified.
 
-## Business goal
-Schedule → CRM/support metrics → KPIs → report → email → archive.
+## Purpose
 
-## Required credentials and configuration
-Sheets/CRM/helpdesk credentials and Gmail; agreed KPI/date window.
+Run weekly or on parent request, read lead and support records in parallel, merge the two inputs, calculate starter seven-day counts, email a report, and append a report-run log.
 
-- Import [`workflow.json`](./workflow.json) into a **test** n8n instance and confirm node compatibility with your installed version.
-- Configure OAuth/API credentials inside n8n Credentials. Never commit tokens or passwords.
-- Replace sample IDs, recipients, URLs and business rules.
-- Replace every `Configure`, `Connect`, or `No Operation` placeholder with a real action before expecting external side effects.
-- Keep the workflow inactive while testing with synthetic data and accounts you control.
+## Workflow path
 
-## Implementation checklist
-1. Confirm the trigger and required input schema.
-2. Validate required fields and return clear errors for bad input.
-3. Apply business rules, consent, approval and platform requirements.
-4. Persist output and a stable business-event ID.
-5. Connect actual external actions and verify destination-side results.
-6. Add bounded retries/backoff for transient errors and sanitized alerts.
-7. Add durable idempotency so retries do not duplicate side effects.
+`Weekly Schedule / parent entry → Read Leads + Read SupportTickets → tag source → Merge (append) → aggregate → Gmail report → ReportLog append`
 
-## Test checklist
-Verify totals against known rows, handle empty datasets, use a consistent date window, and test email failure.
+## Configuration
 
-- [ ] Valid input produces the expected output.
-- [ ] Missing/malformed input is rejected safely.
-- [ ] Duplicate event is checked within one run and across separate runs.
-- [ ] Provider timeout/permission errors are visible; there is no false success.
-- [ ] Logs and alerts contain no secrets or unnecessary customer data.
+Select Google Sheets and Gmail OAuth credentials. Replace `REPLACE_WITH_LEADS_SPREADSHEET_ID`, `REPLACE_WITH_SUPPORT_SPREADSHEET_ID`, `REPLACE_WITH_REPORT_RECIPIENT`, and `REPLACE_WITH_REPORT_LOG_SPREADSHEET_ID`. Create a `ReportLog` tab with the fields used by the logging node.
 
-## Files in this folder
-- [`workflow.json`](./workflow.json) — n8n workflow export.
-- [`Code.gs`](./Code.gs) — optional Google Sheets Apps Script adapter; use only when the workflow needs it.
+## Metrics
 
-For Apps Script use, create a separate test spreadsheet/project, set Script Properties `SPREADSHEET_ID` and `FLOWFORGE_TOKEN`, run `setupSheet()`, deploy with an approved access policy, and test success, invalid token, malformed JSON, missing/duplicate request ID, and permission failure.
+The current report counts lead and support rows and counts rows with parseable `createdAt`, `receivedAt` or `timestamp` values from the last seven days. Your sheet schema and timestamp conventions determine the accuracy of these totals.
 
-## Status and limitations
-This file is a workflow template, not proof of a live end-to-end test. JSON/static checks do not prove n8n import compatibility, valid provider parameters, credentials, or successful API calls. Import and test the workflow, record the n8n version and execution evidence, and only then call it production-ready.
+## Tests to run
 
-See [shared credentials guidance](../CREDENTIALS-GUIDE.md) and [testing report](../../TESTING-AND-VALIDATION.md).
+Test with a small synthetic set in both tabs, including records inside/outside the seven-day window, missing timestamps, an empty sheet, Sheets permission failures and Gmail failure. Verify that the Merge output includes both source types and the report totals agree with the sheets.
+
+## Limits
+
+These are starter row counts, not a normalized KPI model. The workflow doesn't yet calculate revenue, conversion rates, response SLA or deduplicated customer counts. Define KPI formulas with your business stakeholders before sharing the email as a business performance report.
+
+Files: [workflow.json](./workflow.json) · [Code.gs](./Code.gs)  
+Shared guides: [credentials](../CREDENTIALS-GUIDE.md) · [testing](../../TESTING-AND-VALIDATION.md)
