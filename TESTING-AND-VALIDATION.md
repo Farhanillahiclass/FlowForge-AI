@@ -91,3 +91,53 @@ For each event route, test valid input, malformed input, stable-request replay, 
 For every runtime test, record n8n version, workflow name, test date, execution ID, expected and actual output, pass/fail, and destination-side evidence. Use synthetic data and redact secrets. Do not mark an automation production-ready until the relevant cases pass in your n8n instance.
 
 **Current conclusion:** repository structure, static JSON graph consistency, and route wiring have been addressed; full provider-runtime validation remains outstanding.
+
+
+## Follow-up audit — 2026-10-18
+
+A second read-only structural review inspected all 20 canonical `workflows/<slug>/workflow.json` exports on `main`.
+
+### Checks performed
+
+- All 20 files parsed as JSON.
+- All 20 workflow graphs had unique node names and IDs.
+- No dangling connection source or target names were found.
+- No canonical workflow contained an `n8n-nodes-base.noOp` node.
+- All webhook nodes in these exports use Header Auth.
+- Every node was reachable from at least one trigger node by graph traversal.
+- All 20 canonical workflows include an `Execute Workflow Trigger` entry for parent calls.
+- All workflows are marked inactive in their export files.
+
+These are **static structure checks only**. They do not validate n8n node-version schemas, expression behavior, credential access, provider API acceptance, data mapping correctness, or successful side effects.
+
+### Configuration still required after import
+
+The inspected exports still contain `REPLACE_...` configuration values for spreadsheet IDs, recipients, calendar IDs, API model/version configuration, and/or child workflow IDs. Bind actual credentials inside n8n; do not commit secrets to this repository. The central Main Ingress and Request Processor require their imported child workflow IDs to be selected in the target n8n instance.
+
+### Behavior gaps identified
+
+- **07 Meeting Booking:** creates a Calendar event but does not check Google Calendar free/busy conflicts first.
+- **08 Meeting Reminders:** uses a read-before-send reminder log; concurrent executions and a send-success/log-failure can cause duplicate reminders.
+- **10 Invoice Reminders:** payment state is read from the configured sheet, not verified against a live accounting/payment system.
+- **11/14 Content:** drafts are saved and emailed for review; there is no persistent reviewer identity/callback that resumes the workflow after approval.
+- **12 Instagram:** fixed wait is not equivalent to polling media-container processing status; publish outcome needs reconciliation on timeout.
+- **13 YouTube:** video upload is not followed by processing-status polling; upload timeouts can have an uncertain result.
+- **15 Newsletter:** consent/unsubscribe filtering depends on correctly populated subscriber sheet columns; Gmail per-recipient sending is not a full campaign platform with bounce and complaint management.
+- **18 Error Monitor:** configure this as the Error Workflow in n8n settings; an error-trigger export does not automatically monitor other workflows just because it is imported.
+- **19 API Health:** sample public endpoints are placeholders for a real service-monitoring plan; current alerting has no durable state to suppress repeated outage alerts or send reliable recovery-only alerts.
+- **20 Telegram:** accepts Telegram update-shaped data through a protected Webhook; it is not a native Telegram Trigger and requires a trusted delivery/gateway setup.
+
+### Router correction
+
+The unsupported-event response now derives its `supportedEventTypes` list from the same 20-event route map instead of advertising only three examples. This avoids an incomplete error message when a caller submits an unsupported event.
+
+### Required live test matrix
+
+For each workflow, record the target n8n version and test at least:
+1. Valid synthetic event produces the expected destination-side effect.
+2. Missing/invalid required fields are rejected without external writes.
+3. A repeated `requestId`/business event is safely handled across separate executions, not only within one run.
+4. Provider timeout, permission denial and rate limiting do not return a false success.
+5. Retry/reconciliation does not create a duplicate email, calendar event, post, ticket or invoice reminder.
+
+Do not activate production schedules, public webhooks, content publishing, or newsletter sending until these checks are performed with test accounts and explicit approval.

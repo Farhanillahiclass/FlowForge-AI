@@ -118,7 +118,7 @@
         590
       ],
       "parameters": {
-        "jsCode": "return [{json:{ok:false,status:'rejected',httpStatus:422,error:'unsupported_event_type',requestId:$json.requestId,supportedEventTypes:['lead.created','lead.score_requested','support.ticket.created']}}];"
+        "jsCode": "return [{json:{ok:false,status:'rejected',httpStatus:422,error:'unsupported_event_type',requestId:$json.requestId,supportedEventTypes:[\"lead.created\",\"lead.score_requested\",\"email.followup.dispatch\",\"inbox.message.received\",\"support.ticket.created\",\"support.faq.question\",\"meeting.booking.requested\",\"meeting.reminder.dispatch\",\"client.onboarding.start\",\"invoice.reminder.dispatch\",\"content.draft.requested\",\"instagram.publish.requested\",\"youtube.upload.requested\",\"content.repurpose.requested\",\"newsletter.campaign.requested\",\"business.report.generate\",\"feedback.received\",\"workflow.error.received\",\"api.health.check\",\"telegram.command.received\"]}}];"
       }
     },
     {
