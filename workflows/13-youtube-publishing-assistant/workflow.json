@@ -14,7 +14,8 @@
         "httpMethod": "POST",
         "path": "youtube-publish-request",
         "responseMode": "lastNode",
-        "options": {}
+        "options": {},
+        "authentication": "headerAuth"
       }
     },
     {
