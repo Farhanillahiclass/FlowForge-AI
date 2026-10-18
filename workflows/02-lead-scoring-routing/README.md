@@ -1,44 +1,36 @@
 # 02 — Lead Scoring & Routing
 
-**Maintainer:** Muhammad Farhan
+**Maintainer:** Muhammad Farhan  
+**Event type:** `lead.score_requested`  
+**Status:** Static-checked template; live provider execution not yet verified.
 
-## Business goal
-Webhook → normalize → score fit/intent → hot/warm/cold routing → persist and notify.
+## Purpose
 
-## Required credentials and configuration
-Scoring rules need no credential; Sheets/CRM and Gmail/Slack/Telegram credentials are needed for persistence and alerts.
+Validate a lead profile, calculate a configurable score, classify it as hot/warm/cold, append the result to a Google Sheets score log, and alert Sales for hot leads.
 
-- Import [`workflow.json`](./workflow.json) into a **test** n8n instance and confirm node compatibility with your installed version.
-- Configure OAuth/API credentials inside n8n Credentials. Never commit tokens or passwords.
-- Replace sample IDs, recipients, calendars, URLs, time zones and business rules.
-- Replace every `Configure`, `Connect`, or `No Operation` placeholder with a real action before expecting external side effects.
-- Keep the workflow inactive while testing with synthetic data and accounts you control.
+## Scoring inputs
 
-## Implementation checklist
-1. Confirm the trigger and required input schema.
-2. Validate required fields and return clear errors for bad input.
-3. Apply business rules, consent, SLA, and approval requirements.
-4. Persist output and a stable business-event ID.
-5. Connect actual external actions and verify destination-side results.
-6. Add bounded retries/backoff for transient errors and sanitized alerts.
-7. Add durable idempotency so retries do not duplicate side effects.
+- Required: `requestId`, `name`, valid `email`.
+- Optional: `company`, non-negative `budget`, `timeline` (such as `urgent` or `soon`), and Boolean `decisionMaker`.
+- Output: `score`, `tier`, and a structured request status.
 
-## Test checklist
-Test score boundaries and missing fields; tune weights with approved criteria and verify ownership routing.
+Current score weights in the Code node: company +15; budget ≥ 5,000 +35, budget ≥ 1,000 +20, smaller positive budget +10; urgent timeline +30, other timeline +10; decision-maker true +20. The score is capped at 100. Hot is ≥65, warm ≥40, otherwise cold. Adjust these rules to your real business and currency.
 
-- [ ] Valid input produces the expected output.
-- [ ] Missing/malformed input is rejected safely.
-- [ ] Duplicate event is checked within one run and across separate runs.
-- [ ] Provider timeout/permission errors are visible; there is no false success.
-- [ ] Logs and alerts contain no secrets or unnecessary customer data.
+## Workflow path
 
-## Files in this folder
-- [`workflow.json`](./workflow.json) — n8n workflow export.
-- [`Code.gs`](./Code.gs) — optional Google Sheets Apps Script adapter; use only when the workflow needs it.
+`Header Auth Webhook / parent entry → Validate and score → Append LeadScores row → Hot-lead IF → Gmail alert when hot → result`
 
-For Apps Script use, create a separate test spreadsheet/project, set Script Properties `SPREADSHEET_ID` and `FLOWFORGE_TOKEN`, run `setupSheet()`, deploy with an approved access policy, and test success, invalid token, malformed JSON, missing/duplicate request ID, and permission failure.
+## Configuration
 
-## Status and limitations
-This file is a workflow template, not proof of a live end-to-end test. JSON/static checks do not prove n8n import compatibility, valid provider parameters, credentials, or successful API calls. Import and test the workflow, record the n8n version and execution evidence, and only then call it production-ready.
+Select Google Sheets and Gmail credentials. Replace `REPLACE_WITH_SCORE_LOG_SPREADSHEET_ID` and `REPLACE_WITH_SALES_PRIORITY_EMAIL`. Create a `LeadScores` tab whose column headers match the output fields.
 
-See [shared credentials guidance](../CREDENTIALS-GUIDE.md) and [testing report](../../TESTING-AND-VALIDATION.md).
+## Tests to run
+
+Test each tier boundary, missing request ID, invalid email, negative/non-numeric budget, sheet permission error and Gmail send failure. Confirm the stored score matches the current scoring formula.
+
+## Limits
+
+This workflow currently logs repeated score requests as separate scoring events; it does not deduplicate by `requestId`. Repeated requests and updated lead profiles should be handled by your chosen business policy.
+
+Files: [workflow.json](./workflow.json) · [Code.gs](./Code.gs)  
+Shared guides: [credentials](../CREDENTIALS-GUIDE.md) · [testing](../../TESTING-AND-VALIDATION.md)
