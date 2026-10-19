@@ -1,28 +1,56 @@
 # 18 — Workflow Error Monitor
 
 **Maintainer:** Muhammad Farhan  
-**Event type:** `workflow.error.received`  
-**Status:** Static-checked template; Gmail alert execution not yet verified.
+**Event:** `workflow.error.received`  
+**Status:** Source and documentation hardening only; live provider execution has not been verified.
 
 ## Purpose
 
-Receive n8n error context from an Error Trigger or parent event, sanitize key execution details, and send a notification to the operations inbox.
+Capture workflow/execution error context, persist a record and notify operations.
 
-## Workflow path
+## Node-by-node path
 
-`Error Trigger / parent entry → sanitize workflow/execution/error fields → Gmail operator alert`
+`n8n Error Trigger / parent event → normalize error fields → append WorkflowErrors → Gmail operations alert.`
 
-## Configuration
+## Integration setup
 
-Select Gmail OAuth and replace `REPLACE_WITH_OPS_ALERT_EMAIL`. Import the workflow and assign it under **Workflow Settings → Error Workflow** for workflows whose failures should trigger alerts. The central system workflow `system/90-central-error-handler.json` can also be used for shared monitoring.
+Configure Gmail OAuth and operations email. Assign this workflow in each relevant n8n workflow's Settings → Error Workflow, or explicitly connect a central error handler. The workflow will not monitor all flows merely by being imported.
 
-## Tests to run
+1. Import `workflow.json` into a non-production n8n workspace.
+2. Set credentials through n8n's credential manager; never commit tokens or API keys.
+3. Replace all `REPLACE_WITH_...` values and verify every node's field mapping against the actual sheet/API schema.
+4. Keep the workflow inactive until acceptance tests pass.
 
-Cause a controlled failure in a disposable test workflow, verify this workflow was invoked by the n8n Error Workflow setting, and confirm the email contains workflow name, execution ID/URL, last node, sanitized error and timestamp. Test a missing/large error message and Gmail failure.
+## Apps Script adapter
 
-## Limits
+`Code.gs` is a separate authenticated logging/queue endpoint, not an automatic bridge to the n8n execution path. Set Script Properties `SPREADSHEET_ID` and `FLOWFORGE_TOKEN`, run `setupSheet()`, and deploy only after reviewing Web App access settings. The adapter validates a request ID, checks exact sheet headers, prevents duplicate IDs under a script lock and protects spreadsheet cells from formula injection. It logs records only; it does not perform the provider side effects described by the workflow.
 
-This workflow sends email alerts but does not currently persist an error row itself. Alert failure inside the handler can hide additional failures unless the handler has its own independent monitoring. Do not include credentials or full customer payloads in error notifications.
+Example request:
+
+```json
+{
+  "token": "YOUR_SCRIPT_PROPERTY_TOKEN",
+  "requestId": "test-001",
+  "data": {
+    "sourceId": "source-001",
+    "status": "pending"
+  }
+}
+```
+
+Replace the example fields with the columns used by this workflow. Never put the real token in a repository or screenshot.
+
+## Acceptance tests
+
+Trigger controlled error; missing execution metadata; email outage; sheet outage; duplicate event; confirm Error Workflow assignment and alert receipt.
+
+Additionally, verify duplicate request IDs do not create duplicate registry rows, wrong tokens are rejected, malformed JSON is rejected, missing Script Properties produce a configuration error, and mismatched headers are detected. Verify the provider-side effect separately in the relevant service.
+
+## Known limitations
+
+Apps Script is an independent authenticated logging endpoint. It is not automatically called by n8n. Avoid storing secrets or excessive personal data in error messages.
+
+Do not describe the workflow as production-ready until provider credentials, external side effects, retry behavior and failure recovery are tested in a disposable environment.
 
 Files: [workflow.json](./workflow.json) · [Code.gs](./Code.gs)  
 Shared guides: [credentials](../CREDENTIALS-GUIDE.md) · [testing](../../TESTING-AND-VALIDATION.md)
