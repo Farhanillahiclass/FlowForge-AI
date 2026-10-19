@@ -69,14 +69,15 @@ The Apps Script endpoint and n8n workflow are separate execution paths. The n8n 
 
 ## Acceptance tests
 
-1. No optional signals: score = 10 for unspecified timeline, tier cold.
-2. Company + budget 1,200 + soon timeline + decision maker: score = 65, tier hot.
-3. Budget 5,000 with urgent timeline: score is capped at 100 when appropriate.
-4. Negative or non-numeric budget: rejected.
-5. Invalid email / missing request ID: rejected without writing a row.
-6. Repeated request ID to Apps Script: duplicate response without second row.
-7. Sheets permission error and Gmail send error: verify the execution fails visibly and no false success is returned.
-8. Confirm that the configured budget currency matches the thresholds before production use.
+1. No optional signals: score = 10 (unspecified timeline contributes +10), tier cold.
+2. Company + budget 1,200 + soon timeline + decision-maker true: score = 75, tier hot.
+3. Company + budget 1,200 + unspecified timeline + decision-maker false: score = 45, tier warm.
+4. Budget 5,000 + urgent timeline + company + decision-maker true: score is capped at 100.
+5. Negative or non-numeric budget: rejected.
+6. Invalid email / missing request ID: rejected without writing a row.
+7. Repeated request ID to Apps Script: duplicate response without second row.
+8. Sheets permission error and Gmail send error: verify the execution fails visibly and no false success is returned.
+9. Confirm that the configured budget currency matches the thresholds before production use.
 
 ## Limits
 
