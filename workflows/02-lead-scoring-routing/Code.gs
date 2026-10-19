@@ -1,7 +1,7 @@
 /** FlowForge-AI Apps Script endpoint: lead scoring and routing.
- * Default rules are transparent starter rules, not a universal sales model.
+ * Rules mirror workflows/02-lead-scoring-routing/workflow.json.
  * Script Properties: SPREADSHEET_ID and FLOWFORGE_TOKEN. Never commit secrets.
- * POST JSON: {"token":"...","requestId":"stable-id","data":{"name":"...","email":"...","company":"...","source":"referral","message":"Interested in pricing","budget":true}}
+ * POST JSON: {"token":"...","requestId":"stable-id","data":{"name":"...","email":"...","company":"...","budget":1200,"timeline":"soon","decisionMaker":true}}
  */
 const SHEET_NAME = "LeadScoring";
 const HEADERS = ["createdAt","requestId","leadId","name","email","score","tier","route","reason"];
@@ -44,13 +44,19 @@ function doPost(e) {
   const requestId = String(payload.requestId || "").trim();
   const name = String(data.name || "").trim();
   const email = String(data.email || "").trim().toLowerCase();
+  const budget = data.budget === "" || data.budget == null ? 0 : Number(data.budget);
   if (!requestId || requestId.length > 200) return output_({ok:false, status:"rejected", error:"requestId is required (max 200 chars)"});
   if (!name || name.length > 200) return output_({ok:false, status:"rejected", requestId, error:"name is required (max 200 chars)"});
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 320) {
     return output_({ok:false, status:"rejected", requestId, error:"A valid email is required"});
   }
-
-  const scored = scoreLead_(data, name, email);
+  if (!Number.isFinite(budget) || budget < 0) {
+    return output_({ok:false, status:"rejected", requestId, error:"budget must be a non-negative number"});
+  }
+  const decisionMaker = data.decisionMaker === true;
+  const timeline = String(data.timeline || "").trim().toLowerCase();
+  const company = String(data.company || "").trim();
+  const scored = scoreLead_({company, budget, timeline, decisionMaker});
   const lock = LockService.getScriptLock();
   let locked = false;
   try {
@@ -71,11 +77,10 @@ function doPost(e) {
       }
     }
     const leadId = String(data.leadId || requestId).trim().slice(0, 200);
-    const row = [
+    sheet.appendRow([
       new Date().toISOString(), requestId, safe_(leadId), safe_(name), safe_(email),
       scored.score, scored.tier, scored.route, safe_(scored.reason)
-    ];
-    sheet.appendRow(row);
+    ]);
     return output_({ok:true, status:"scored", duplicate:false, workflow:WORKFLOW_ID, requestId, leadId, score:scored.score, tier:scored.tier, route:scored.route, reason:scored.reason, row:sheet.getLastRow()});
   } catch (err) {
     return output_({ok:false, status:"failed", error:String(err && err.message || err).slice(0, 250)});
@@ -84,25 +89,22 @@ function doPost(e) {
   }
 }
 
-/** Transparent starter rubric: maximum 100. Tune these weights to your sales process. */
-function scoreLead_(data, name, email) {
-  let score = 10; // a valid name and email are required to reach this function
-  const reasons = ["valid name and email +10"];
-  const company = String(data.company || "").trim();
-  if (company) { score += 20; reasons.push("company supplied +20"); }
-  const source = String(data.source || "").trim().toLowerCase();
-  if (source === "referral" || source === "partner") { score += 20; reasons.push("referral/partner source +20"); }
-  const message = String(data.message || "").trim().toLowerCase();
-  if (message) { score += 10; reasons.push("message supplied +10"); }
-  if (/\b(demo|pricing|quote|buy|purchase|trial)\b/.test(message)) {
-    score += 25; reasons.push("purchase-intent keyword +25");
-  }
-  const budget = data.budget === true || String(data.budget || "").toLowerCase() === "yes";
-  if (budget) { score += 15; reasons.push("budget confirmed +15"); }
+/** Keep these weights and thresholds aligned with the n8n Code node and README. */
+function scoreLead_(lead) {
+  let score = (lead.company ? 15 : 0)
+    + (lead.budget >= 5000 ? 35 : lead.budget >= 1000 ? 20 : lead.budget > 0 ? 10 : 0)
+    + (lead.timeline === "urgent" ? 30 : lead.timeline === "soon" ? 20 : 10)
+    + (lead.decisionMaker ? 20 : 0);
   score = Math.min(100, score);
-  const tier = score >= 70 ? "HOT" : score >= 40 ? "WARM" : "NURTURE";
-  const route = tier === "HOT" ? "sales-priority" : tier === "WARM" ? "sales-follow-up" : "nurture";
-  return {score, tier, route, reason:reasons.join("; ")};
+  const tier = score >= 65 ? "hot" : score >= 40 ? "warm" : "cold";
+  const route = tier === "hot" ? "sales-priority" : tier === "warm" ? "sales-follow-up" : "nurture";
+  const reason = [
+    "company:" + (lead.company ? "+15" : "+0"),
+    "budget:" + (lead.budget >= 5000 ? "+35" : lead.budget >= 1000 ? "+20" : lead.budget > 0 ? "+10" : "+0"),
+    "timeline:" + (lead.timeline === "urgent" ? "+30" : lead.timeline === "soon" ? "+20" : "+10"),
+    "decisionMaker:" + (lead.decisionMaker ? "+20" : "+0")
+  ].join("; ");
+  return {score, tier, route, reason};
 }
 
 function safe_(value) {
