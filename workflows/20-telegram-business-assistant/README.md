@@ -1,37 +1,56 @@
 # 20 — Telegram Business Assistant
 
 **Maintainer:** Muhammad Farhan  
-**Event type:** `telegram.command.received`  
-**Status:** Static-checked template; live Telegram/Sheets/Gmail execution not yet verified.
+**Event:** `telegram.command.received`  
+**Status:** Source and documentation hardening only; live provider execution has not been verified.
 
 ## Purpose
 
-Parse incoming Telegram-style update data, route `/start`, `/help`, `/lead`, and `/support` commands, persist new lead/support requests, and respond in the originating chat. Unknown commands receive a help response.
+Handle Telegram commands, log lead/support requests and reply to the originating chat.
 
-## Supported commands
+## Node-by-node path
 
-- `/start` — send a welcome message.
-- `/help` — show the command menu.
-- `/lead Full Name | email@example.com | Company` — validate and save a lead.
-- `/support Describe your issue here` — save a support request, email the support inbox, and acknowledge the user.
+`Telegram update/webhook → normalize update → route /start, /help, /lead, /support → validate → persist lead/support → Telegram reply; unknown commands return help.`
 
-The Telegram update should provide `message.text` and `message.chat.id`; a stable `update_id` is used as the request ID when present.
+## Integration setup
 
-## Workflow path
+Configure a Telegram bot credential, native Telegram Trigger or secured webhook, Sheets credentials and support email. Keep bot token in n8n credentials. Input should include message.text and message.chat.id; use update_id as stable request ID.
 
-`Header Auth Webhook / parent entry → parse command → Switch → Telegram response, Google Sheets lead save, or support-ticket log + Gmail handoff`
+1. Import `workflow.json` into a non-production n8n workspace.
+2. Set credentials through n8n's credential manager; never commit tokens or API keys.
+3. Replace all `REPLACE_WITH_...` values and verify every node's field mapping against the actual sheet/API schema.
+4. Keep the workflow inactive until acceptance tests pass.
 
-## Configuration
+## Apps Script adapter
 
-Select Telegram, Google Sheets and Gmail credentials. Replace `REPLACE_WITH_LEADS_SPREADSHEET_ID`, `REPLACE_WITH_SUPPORT_SPREADSHEET_ID`, and `REPLACE_WITH_SUPPORT_EMAIL`. Create `Leads` and `SupportTickets` tabs. If Telegram calls the Webhook directly, configure Header Auth to match an appropriate secret header that your Telegram delivery setup can send, or route requests through a trusted gateway.
+`Code.gs` is a separate authenticated logging/queue endpoint, not an automatic bridge to the n8n execution path. Set Script Properties `SPREADSHEET_ID` and `FLOWFORGE_TOKEN`, run `setupSheet()`, and deploy only after reviewing Web App access settings. The adapter validates a request ID, checks exact sheet headers, prevents duplicate IDs under a script lock and protects spreadsheet cells from formula injection. It logs records only; it does not perform the provider side effects described by the workflow.
 
-## Tests to run
+Example request:
 
-Test each command, malformed lead format, invalid email, short support text, unknown command, missing chat ID, repeated `update_id`, and each provider permission failure. Use a test bot and test sheets only.
+```json
+{
+  "token": "YOUR_SCRIPT_PROPERTY_TOKEN",
+  "requestId": "test-001",
+  "data": {
+    "sourceId": "source-001",
+    "status": "pending"
+  }
+}
+```
 
-## Limits and security
+Replace the example fields with the columns used by this workflow. Never put the real token in a repository or screenshot.
 
-The workflow uses a Webhook to receive Telegram update-shaped JSON; it is not connected to a native Telegram Trigger node. The `/lead` and `/support` actions currently don't deduplicate by a persistent update ID before writing. Restrict callers at the gateway/webhook, don't expose the webhook publicly without authentication, and add a durable unique key before production.
+## Acceptance tests
+
+/start; /help; valid/invalid /lead; /support; unknown command; missing chat ID; duplicate update_id; Telegram API error; Sheets/Gmail failure.
+
+Additionally, verify duplicate request IDs do not create duplicate registry rows, wrong tokens are rejected, malformed JSON is rejected, missing Script Properties produce a configuration error, and mismatched headers are detected. Verify the provider-side effect separately in the relevant service.
+
+## Known limitations
+
+If using a generic webhook, ensure Telegram webhook authentication/secret verification is configured. Apps Script registry only logs events and is not the live Telegram bot.
+
+Do not describe the workflow as production-ready until provider credentials, external side effects, retry behavior and failure recovery are tested in a disposable environment.
 
 Files: [workflow.json](./workflow.json) · [Code.gs](./Code.gs)  
 Shared guides: [credentials](../CREDENTIALS-GUIDE.md) · [testing](../../TESTING-AND-VALIDATION.md)
