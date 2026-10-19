@@ -2,7 +2,9 @@
 
 This folder contains three central system workflows. The **20 business workflow exports under `workflows/` are the only canonical child workflows**.
 
-## Flow
+## Architecture
+
+![FlowForge-AI parent-child architecture](../docs/images/flowforge-architecture.svg)
 
 ```text
 00 Main Ingress — Header Auth + request envelope validation
@@ -14,9 +16,13 @@ This folder contains three central system workflows. The **20 business workflow 
        |
        +--> Reject unknown eventType with structured error
 
-Unattended execution error --> 90 Central Error Handler
-                               sanitized log + operator alert
+Configured n8n Error Workflow --> 90 Central Error Handler
+                                  sanitized log + operator alert
 ```
+
+## Deployment guide
+
+Read [n8n Cloud 2.x Deployment](./N8N-CLOUD-2X-DEPLOYMENT.md) for the complete import sequence, parent-child binding checklist, test matrix, and safety guardrails. The [Parent–Child Orchestration guide](./PARENT-CHILD-ORCHESTRATION.md) defines the shared envelope and the 20 event routes.
 
 ## Import and bind workflow IDs
 
@@ -27,8 +33,6 @@ Unattended execution error --> 90 Central Error Handler
 5. Import `system/90-central-error-handler.json`. Select its operations-log spreadsheet and alert recipient, then assign it under **Workflow Settings → Error Workflow** for the ingress, processor, and unattended child workflows you want monitored.
 6. Select the required Google Sheets, Gmail, Calendar, Anthropic, Meta, YouTube and Telegram credentials on each applicable node. Replace IDs, sheet names, recipients, Graph API version and other placeholders in n8n.
 7. Test the full parent call and every route in a test workspace before activation.
-
-See [Parent–Child Orchestration and End-to-End Completion](./PARENT-CHILD-ORCHESTRATION.md) for the full route matrix, shared contract, n8n Cloud 2.x setup order, and acceptance criteria.
 
 ## Shared request envelope
 
@@ -53,21 +57,21 @@ See [Parent–Child Orchestration and End-to-End Completion](./PARENT-CHILD-ORCH
 |---|---|
 | `lead.created` | 01 Lead Capture & CRM |
 | `lead.score_requested` | 02 Lead Scoring & Routing |
-| `email.followup.dispatch` | 03 Email Follow-up Sequence |
-| `inbox.message.received` | 04 Inbox Triage Assistant |
-| `support.ticket.created` | 05 Customer Support Desk |
-| `support.faq.question` | 06 FAQ & Human Handoff |
-| `meeting.booking.requested` | 07 Meeting Booking System |
+| `email.followup.dispatch` | 03 Email Follow-up |
+| `inbox.message.received` | 04 Inbox Triage |
+| `support.ticket.created` | 05 Customer Support |
+| `support.faq.question` | 06 FAQ / Human Handoff |
+| `meeting.booking.requested` | 07 Meeting Booking |
 | `meeting.reminder.dispatch` | 08 Meeting Reminders |
 | `client.onboarding.start` | 09 Client Onboarding |
-| `invoice.reminder.dispatch` | 10 Invoice & Payment Reminders |
-| `content.draft.requested` | 11 Content Creation & Approval |
+| `invoice.reminder.dispatch` | 10 Invoice Reminders |
+| `content.draft.requested` | 11 Content Creation |
 | `instagram.publish.requested` | 12 Instagram Publishing |
 | `youtube.upload.requested` | 13 YouTube Upload |
 | `content.repurpose.requested` | 14 Content Repurposing |
 | `newsletter.campaign.requested` | 15 Newsletter Campaign |
 | `business.report.generate` | 16 Weekly Business Report |
-| `feedback.received` | 17 Feedback & Escalation |
+| `feedback.received` | 17 Feedback Routing |
 | `workflow.error.received` | 18 Workflow Error Monitor |
 | `api.health.check` | 19 API Health Monitor |
 | `telegram.command.received` | 20 Telegram Assistant |
