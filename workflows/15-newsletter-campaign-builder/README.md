@@ -1,36 +1,56 @@
 # 15 — Newsletter Campaign Builder
 
 **Maintainer:** Muhammad Farhan  
-**Event type:** `newsletter.campaign.requested`  
-**Status:** Static-checked template; live mailing not yet verified.
+**Event:** `newsletter.campaign.requested`  
+**Status:** Source and documentation hardening only; live provider execution has not been verified.
 
 ## Purpose
 
-Validate a newsletter draft, require an explicit approval flag, read the subscriber list, filter by consent and unsubscribe status, send the message to eligible recipients, and log send attempts.
+Validate newsletter content, gate sending on approval, filter subscribers by consent/unsubscribe state, send and log campaign attempts.
 
-## Input contract
+## Node-by-node path
 
-Required: stable `requestId`, non-empty `subject`, `body` longer than 20 characters, and `approved: true` to start sending. Optional: `audienceId` to limit recipients. Without approval, the workflow returns `pending-approval` and does not enter the mailing branch.
+`Webhook/schedule → validate subject/body → approval gate → read Subscribers → filter consent/unsubscribed/audience → send eligible emails → append CampaignLog.`
 
-## Required Subscribers and CampaignLog sheet fields
+## Integration setup
 
-The `Subscribers` tab needs `email`, `consent`, `unsubscribed` and optionally `audienceId`, `subscriberId`. The workflow accepts Boolean or string forms of true/yes for consent and unsubscribe flags. The `CampaignLog` tab stores request ID, subscriber email/ID, subject and attempt time.
+Configure Sheets/Gmail OAuth and subscriber/campaign-log sheets. Subscribers needs email, consent, unsubscribed and optional audienceId/subscriberId. Keep send branch disabled until consent semantics are confirmed.
 
-## Workflow path
+1. Import `workflow.json` into a non-production n8n workspace.
+2. Set credentials through n8n's credential manager; never commit tokens or API keys.
+3. Replace all `REPLACE_WITH_...` values and verify every node's field mapping against the actual sheet/API schema.
+4. Keep the workflow inactive until acceptance tests pass.
 
-`Header Auth Webhook / parent entry → validate → Campaign Approved? → read subscribers → filter valid consented recipients and suppress unsubscribed → Gmail per recipient → append send-attempt log`
+## Apps Script adapter
 
-## Configuration
+`Code.gs` is a separate authenticated logging/queue endpoint, not an automatic bridge to the n8n execution path. Set Script Properties `SPREADSHEET_ID` and `FLOWFORGE_TOKEN`, run `setupSheet()`, and deploy only after reviewing Web App access settings. The adapter validates a request ID, checks exact sheet headers, prevents duplicate IDs under a script lock and protects spreadsheet cells from formula injection. It logs records only; it does not perform the provider side effects described by the workflow.
 
-Select Google Sheets and Gmail credentials. Replace `REPLACE_WITH_SUBSCRIBERS_SPREADSHEET_ID` and `REPLACE_WITH_CAMPAIGN_LOG_SPREADSHEET_ID`. Test with internal addresses first and keep the workflow inactive until the full mailing and suppression behavior is verified.
+Example request:
 
-## Tests to run
+```json
+{
+  "token": "YOUR_SCRIPT_PROPERTY_TOKEN",
+  "requestId": "test-001",
+  "data": {
+    "sourceId": "source-001",
+    "status": "pending"
+  }
+}
+```
 
-Test missing consent, unsubscribed flag, invalid email, another audience ID, an empty eligible list, approval false/true, Gmail failure, and log-write failure. Confirm only intended addresses receive a test message.
+Replace the example fields with the columns used by this workflow. Never put the real token in a repository or screenshot.
 
-## Limits and safeguards
+## Acceptance tests
 
-The `approved` flag is supplied by the authenticated caller; it is not a reviewer identity or persisted approval record. The current template relies on Gmail sends per subscriber, not a specialized campaign provider. Provider quotas, unsubscribe law/policy, bounce management and suppression data need separate handling. A send followed by failed logging can create uncertain delivery state; reconcile before retrying. Use an internal test list and require human review before a real campaign.
+No approval means zero sends; consent false; unsubscribed true; audience mismatch; empty list; duplicate request; Gmail failure; campaign-log failure.
+
+Additionally, verify duplicate request IDs do not create duplicate registry rows, wrong tokens are rejected, malformed JSON is rejected, missing Script Properties produce a configuration error, and mismatched headers are detected. Verify the provider-side effect separately in the relevant service.
+
+## Known limitations
+
+Consent filtering must be verified against actual sheet values and applicable requirements. A caller-supplied approval flag is not proof of reviewer identity. Sending and logging are not transactional.
+
+Do not describe the workflow as production-ready until provider credentials, external side effects, retry behavior and failure recovery are tested in a disposable environment.
 
 Files: [workflow.json](./workflow.json) · [Code.gs](./Code.gs)  
 Shared guides: [credentials](../CREDENTIALS-GUIDE.md) · [testing](../../TESTING-AND-VALIDATION.md)
