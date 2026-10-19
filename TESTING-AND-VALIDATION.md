@@ -141,3 +141,34 @@ For each workflow, record the target n8n version and test at least:
 5. Retry/reconciliation does not create a duplicate email, calendar event, post, ticket or invoice reminder.
 
 Do not activate production schedules, public webhooks, content publishing, or newsletter sending until these checks are performed with test accounts and explicit approval.
+
+
+## End-to-end readiness clarification — 2026-10-19
+
+![End-to-end readiness path](docs/images/end-to-end-readiness.svg)
+
+The static review of the 20 canonical child exports on `main` found that all 20 files parse as JSON, have unique node names/IDs, have no dangling connection targets, contain no No Operation nodes, include a parent-call trigger, and remain inactive. This is structural evidence only, not proof of correct business behavior.
+
+### Configuration placeholders observed in the canonical exports
+
+The current main-branch files still contain workspace-specific placeholders that must be resolved in n8n before runtime testing, including spreadsheet IDs, recipient emails, calendar IDs, supported model settings, Instagram Graph API version/user ID, and other provider configuration. The YouTube export had no literal `REPLACE_WITH_...` string in the static scan, but credentials, source file access, permissions, and destination processing still require manual verification.
+
+### Parent/child connection caveat
+
+The parent router contains 20 route nodes, but each Execute Sub-workflow node must be bound to the actual imported child workflow in the user's n8n workspace. The Main Ingress must similarly be bound to the imported Request Processor. Static names/cached labels cannot prove these workspace-specific IDs are valid. See [n8n Cloud 2.x Deployment](system/N8N-CLOUD-2X-DEPLOYMENT.md) and [Parent–Child Orchestration](system/PARENT-CHILD-ORCHESTRATION.md).
+
+### Remaining end-to-end work
+
+- Import the 23 exports (20 child + 3 system) into a disposable test project.
+- Resolve all placeholders and select credentials privately inside n8n.
+- Bind all 20 route IDs and the ingress-to-processor ID.
+- Run positive, invalid input, unsupported event, retry/duplicate, provider failure, and destination-side verification tests for every route.
+- Configure and test the central Error Workflow in n8n workflow settings.
+- Do not activate customer-facing or scheduled workflows until the relevant test evidence is recorded.
+
+### Current status labels
+
+- **Static structure:** reviewed against the exported JSON files.
+- **Configuration:** pending in the target n8n Cloud workspace.
+- **Live end-to-end execution:** not verified from this repository review.
+- **Production readiness:** not established until acceptance tests pass.
