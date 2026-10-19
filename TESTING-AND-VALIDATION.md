@@ -2,13 +2,13 @@
 
 ## Scope and honest status
 
-The repository contains 20 canonical n8n workflow exports, a shared ingress/dispatcher/error-handler layer, and static validation in GitHub Actions.
+The repository contains 20 canonical n8n workflow exports, a shared ingress/dispatcher/error-handler layer, individual Apps Script adapters, and static validation in GitHub Actions.
 
-- Duplicate root-level JSON copies and mirrored `apps-script/` / `workflow-guides/` trees have been removed.
-- The 20 canonical workflow exports are structurally checked on this branch: each has a parent-call entry point, unique node names and IDs, valid connection targets, and remains inactive.
-- The canonical 20 workflow exports contain no `n8n-nodes-base.noOp` nodes.
-- The central request processor has 20 event routes, each pointing at one canonical workflow folder.
-- **Live n8n import, provider credentials, and destination-side effects have not been executed in this environment.** Provider node compatibility depends on the n8n version and needs to be verified in a disposable test project.
+- Canonical exports live at `workflows/<slug>/workflow.json`; each workflow folder also contains its own `Code.gs` and `README.md`.
+- The system dispatcher is intended to route the 20 documented event types to their canonical child workflows.
+- The workflow exports are designed to remain inactive until credentials, IDs and node mappings are configured.
+- Apps Script adapters have been hardened to validate request IDs and payload shapes, check spreadsheet headers, deduplicate under a script lock, and avoid spreadsheet formula injection. These adapters are separate from n8n until an HTTP Request node explicitly connects them.
+- **Live n8n import, provider credentials, Apps Script deployment, and destination-side effects have not been executed in this environment.** A source-level change is not proof of runtime success.
 
 ## Run repository validation
 
@@ -20,7 +20,7 @@ python scripts/validate_workflows.py
 
 The validator checks folder layout, required files, JSON syntax, unique node identities, connection targets, webhook authentication settings, absence of duplicate mirrors and No Operation nodes, and the system's 20 Execute Sub-workflow routes. GitHub Actions runs this static validator on pushes and pull requests.
 
-A passing static check does **not** prove node-parameter compatibility, credential validity, authentication setup, Apps Script deployment, or successful execution against a provider.
+A passing static check does **not** prove node-parameter compatibility, credential validity, authentication setup, Apps Script deployment, correct business logic, or successful execution against a provider.
 
 ## Core system deployment order
 
@@ -75,100 +75,34 @@ Use the same `requestId` when retrying one business event. The Main Ingress requ
 
 For each event route, test valid input, malformed input, stable-request replay, unsupported event type, a controlled provider failure, and the returned output. Inspect the child execution result and the destination itself—not only the HTTP response.
 
-## Important workflow-specific limits to test
+## Workflow-specific limitations still requiring tests
 
-- **Lead and support duplicate checks:** the spreadsheet read-before-write path prevents ordinary repeated requests, but concurrent requests can race. A timeout after the external action may need reconciliation. For high volume/critical use, use a database with a unique constraint or documented provider idempotency key.
-- **Email follow-up and meeting reminders:** state is tracked in Google Sheets. Check that the configured headers match the node mappings and test a repeated schedule run. Overlapping runs can still race.
-- **Meeting booking:** event creation needs valid Calendar permissions and conflict/availability checks appropriate to the business; the current export doesn't prove a conflict-free booking.
-- **Content drafts:** Anthropic API/model credentials, Sheets, and editor email need configuration. Human-review emails are not a live approval callback by themselves; don't assume an editor reply automatically resumes publishing.
-- **Instagram and YouTube:** public publishing/upload requires provider app permissions, IDs, access credentials, media accessibility, and account testing. Publishing/upload output must be checked in the destination service.
-- **Newsletter:** test with an internal audience, verify consent and unsubscribe columns, confirm campaign suppression, and review delivery logs before a real mailing.
-- **Weekly report and health monitor:** report calculations depend on the actual schema; health alerts can repeat during a prolonged outage until durable previous-state/recovery tracking is configured.
-- **Central error handler:** assign it in n8n settings and test a controlled automatic execution failure. Errors in the handler itself require separate visibility.
+- **Lead/support and spreadsheet-backed queues:** read-before-write can race in overlapping executions; use a database unique constraint for high-volume/critical idempotency.
+- **Meeting booking/reminders:** verify calendar free/busy conflict handling, timezone, reminder send/log reconciliation and repeated schedule runs.
+- **Client onboarding/invoice reminders:** the Sheets state is not authoritative accounting or project state; external payment state and calendar scheduling need separate integrations.
+- **Content approval:** email notifications are not approval callbacks. Approval state must be persisted and tied to a trusted reviewer before any publishing action.
+- **Instagram:** the current workflow uses a fixed wait instead of polling media container status; publish ledger and ambiguous-timeout reconciliation remain required.
+- **YouTube:** upload success and processing completion are different; verify final processing status in YouTube Studio. Caller-supplied approval flags are not identity proof.
+- **Newsletter:** verify consent/unsubscribe semantics and run only against an internal test audience first; sending and campaign logging are not transactional.
+- **Weekly report:** counts and totals depend on source schemas, date boundaries and timezone; reconcile with known sample data.
+- **Error monitor:** assign the workflow in n8n settings. An error workflow does not monitor all other workflows merely by being imported.
+- **API health monitor:** durable alert suppression and recovery state are required to prevent repeated alerts during a prolonged outage.
+- **Telegram assistant:** configure a native Telegram Trigger or a secured webhook with Telegram webhook verification; keep bot tokens in n8n credentials.
+
+## Apps Script adapter contract
+
+Each `Code.gs` file is a standalone Web App adapter, not an automatic integration bridge. Before deployment:
+
+1. Set Script Properties `SPREADSHEET_ID` and `FLOWFORGE_TOKEN`.
+2. Run that workflow's `setupSheet()` function manually and confirm its exact headers.
+3. Use a separate test spreadsheet and a dedicated token.
+4. Restrict Web App access as tightly as the deployment architecture allows.
+5. Send a test payload using the expected `requestId` and `data` shape; verify invalid token, malformed JSON, duplicate ID, bad header and missing configuration cases.
+6. Connect n8n to the Apps Script URL explicitly only if that integration is intended. Do not assume the Apps Script queue and n8n nodes share state.
+7. Never commit real tokens, API keys, personal data or provider credentials.
 
 ## Evidence record
 
 For every runtime test, record n8n version, workflow name, test date, execution ID, expected and actual output, pass/fail, and destination-side evidence. Use synthetic data and redact secrets. Do not mark an automation production-ready until the relevant cases pass in your n8n instance.
 
-**Current conclusion:** repository structure, static JSON graph consistency, and route wiring have been addressed; full provider-runtime validation remains outstanding.
-
-
-## Follow-up audit — 2026-10-18
-
-A second read-only structural review inspected all 20 canonical `workflows/<slug>/workflow.json` exports on `main`.
-
-### Checks performed
-
-- All 20 files parsed as JSON.
-- All 20 workflow graphs had unique node names and IDs.
-- No dangling connection source or target names were found.
-- No canonical workflow contained an `n8n-nodes-base.noOp` node.
-- All webhook nodes in these exports use Header Auth.
-- Every node was reachable from at least one trigger node by graph traversal.
-- All 20 canonical workflows include an `Execute Workflow Trigger` entry for parent calls.
-- All workflows are marked inactive in their export files.
-
-These are **static structure checks only**. They do not validate n8n node-version schemas, expression behavior, credential access, provider API acceptance, data mapping correctness, or successful side effects.
-
-### Configuration still required after import
-
-The inspected exports still contain `REPLACE_...` configuration values for spreadsheet IDs, recipients, calendar IDs, API model/version configuration, and/or child workflow IDs. Bind actual credentials inside n8n; do not commit secrets to this repository. The central Main Ingress and Request Processor require their imported child workflow IDs to be selected in the target n8n instance.
-
-### Behavior gaps identified
-
-- **07 Meeting Booking:** creates a Calendar event but does not check Google Calendar free/busy conflicts first.
-- **08 Meeting Reminders:** uses a read-before-send reminder log; concurrent executions and a send-success/log-failure can cause duplicate reminders.
-- **10 Invoice Reminders:** payment state is read from the configured sheet, not verified against a live accounting/payment system.
-- **11/14 Content:** drafts are saved and emailed for review; there is no persistent reviewer identity/callback that resumes the workflow after approval.
-- **12 Instagram:** fixed wait is not equivalent to polling media-container processing status; publish outcome needs reconciliation on timeout.
-- **13 YouTube:** video upload is not followed by processing-status polling; upload timeouts can have an uncertain result.
-- **15 Newsletter:** consent/unsubscribe filtering depends on correctly populated subscriber sheet columns; Gmail per-recipient sending is not a full campaign platform with bounce and complaint management.
-- **18 Error Monitor:** configure this as the Error Workflow in n8n settings; an error-trigger export does not automatically monitor other workflows just because it is imported.
-- **19 API Health:** sample public endpoints are placeholders for a real service-monitoring plan; current alerting has no durable state to suppress repeated outage alerts or send reliable recovery-only alerts.
-- **20 Telegram:** accepts Telegram update-shaped data through a protected Webhook; it is not a native Telegram Trigger and requires a trusted delivery/gateway setup.
-
-### Router correction
-
-The unsupported-event response now derives its `supportedEventTypes` list from the same 20-event route map instead of advertising only three examples. This avoids an incomplete error message when a caller submits an unsupported event.
-
-### Required live test matrix
-
-For each workflow, record the target n8n version and test at least:
-1. Valid synthetic event produces the expected destination-side effect.
-2. Missing/invalid required fields are rejected without external writes.
-3. A repeated `requestId`/business event is safely handled across separate executions, not only within one run.
-4. Provider timeout, permission denial and rate limiting do not return a false success.
-5. Retry/reconciliation does not create a duplicate email, calendar event, post, ticket or invoice reminder.
-
-Do not activate production schedules, public webhooks, content publishing, or newsletter sending until these checks are performed with test accounts and explicit approval.
-
-
-## End-to-end readiness clarification — 2026-10-19
-
-![End-to-end readiness path](docs/images/end-to-end-readiness.svg)
-
-The static review of the 20 canonical child exports on `main` found that all 20 files parse as JSON, have unique node names/IDs, have no dangling connection targets, contain no No Operation nodes, include a parent-call trigger, and remain inactive. This is structural evidence only, not proof of correct business behavior.
-
-### Configuration placeholders observed in the canonical exports
-
-The current main-branch files still contain workspace-specific placeholders that must be resolved in n8n before runtime testing, including spreadsheet IDs, recipient emails, calendar IDs, supported model settings, Instagram Graph API version/user ID, and other provider configuration. The YouTube export had no literal `REPLACE_WITH_...` string in the static scan, but credentials, source file access, permissions, and destination processing still require manual verification.
-
-### Parent/child connection caveat
-
-The parent router contains 20 route nodes, but each Execute Sub-workflow node must be bound to the actual imported child workflow in the user's n8n workspace. The Main Ingress must similarly be bound to the imported Request Processor. Static names/cached labels cannot prove these workspace-specific IDs are valid. See [n8n Cloud 2.x Deployment](system/N8N-CLOUD-2X-DEPLOYMENT.md) and [Parent–Child Orchestration](system/PARENT-CHILD-ORCHESTRATION.md).
-
-### Remaining end-to-end work
-
-- Import the 23 exports (20 child + 3 system) into a disposable test project.
-- Resolve all placeholders and select credentials privately inside n8n.
-- Bind all 20 route IDs and the ingress-to-processor ID.
-- Run positive, invalid input, unsupported event, retry/duplicate, provider failure, and destination-side verification tests for every route.
-- Configure and test the central Error Workflow in n8n workflow settings.
-- Do not activate customer-facing or scheduled workflows until the relevant test evidence is recorded.
-
-### Current status labels
-
-- **Static structure:** reviewed against the exported JSON files.
-- **Configuration:** pending in the target n8n Cloud workspace.
-- **Live end-to-end execution:** not verified from this repository review.
-- **Production readiness:** not established until acceptance tests pass.
+**Current conclusion:** Source and documentation hardening has been applied across the workflow set. Static validation should be run in GitHub Actions, then all workflows still need import/configuration/runtime verification against the actual n8n Cloud instance and provider accounts.
