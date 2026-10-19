@@ -1,32 +1,56 @@
 # 16 — Weekly Business Reporting
 
 **Maintainer:** Muhammad Farhan  
-**Event type:** `business.report.generate`  
-**Status:** Static-checked template; Sheets/Gmail execution not yet verified.
+**Event:** `business.report.generate`  
+**Status:** Source and documentation hardening only; live provider execution has not been verified.
 
 ## Purpose
 
-Run weekly or on parent request, read lead and support records in parallel, merge the two inputs, calculate starter seven-day counts, email a report, and append a report-run log.
+Read lead and support records, aggregate a starter weekly summary, email it and log the run.
 
-## Workflow path
+## Node-by-node path
 
-`Weekly Schedule / parent entry → Read Leads + Read SupportTickets → tag source → Merge (append) → aggregate → Gmail report → ReportLog append`
+`Weekly schedule/parent → read Leads and SupportTickets in parallel → tag source → merge → aggregate → Gmail report → report-log append.`
 
-## Configuration
+## Integration setup
 
-Select Google Sheets and Gmail OAuth credentials. Replace `REPLACE_WITH_LEADS_SPREADSHEET_ID`, `REPLACE_WITH_SUPPORT_SPREADSHEET_ID`, `REPLACE_WITH_REPORT_RECIPIENT`, and `REPLACE_WITH_REPORT_LOG_SPREADSHEET_ID`. Create a `ReportLog` tab with the fields used by the logging node.
+Configure lead/ticket/report-log spreadsheet IDs, Gmail OAuth, recipient, date fields and time zone. Verify the current aggregation against sample records before relying on totals.
 
-## Metrics
+1. Import `workflow.json` into a non-production n8n workspace.
+2. Set credentials through n8n's credential manager; never commit tokens or API keys.
+3. Replace all `REPLACE_WITH_...` values and verify every node's field mapping against the actual sheet/API schema.
+4. Keep the workflow inactive until acceptance tests pass.
 
-The current report counts lead and support rows and counts rows with parseable `createdAt`, `receivedAt` or `timestamp` values from the last seven days. Your sheet schema and timestamp conventions determine the accuracy of these totals.
+## Apps Script adapter
 
-## Tests to run
+`Code.gs` is a separate authenticated logging/queue endpoint, not an automatic bridge to the n8n execution path. Set Script Properties `SPREADSHEET_ID` and `FLOWFORGE_TOKEN`, run `setupSheet()`, and deploy only after reviewing Web App access settings. The adapter validates a request ID, checks exact sheet headers, prevents duplicate IDs under a script lock and protects spreadsheet cells from formula injection. It logs records only; it does not perform the provider side effects described by the workflow.
 
-Test with a small synthetic set in both tabs, including records inside/outside the seven-day window, missing timestamps, an empty sheet, Sheets permission failures and Gmail failure. Verify that the Merge output includes both source types and the report totals agree with the sheets.
+Example request:
 
-## Limits
+```json
+{
+  "token": "YOUR_SCRIPT_PROPERTY_TOKEN",
+  "requestId": "test-001",
+  "data": {
+    "sourceId": "source-001",
+    "status": "pending"
+  }
+}
+```
 
-These are starter row counts, not a normalized KPI model. The workflow doesn't yet calculate revenue, conversion rates, response SLA or deduplicated customer counts. Define KPI formulas with your business stakeholders before sharing the email as a business performance report.
+Replace the example fields with the columns used by this workflow. Never put the real token in a repository or screenshot.
+
+## Acceptance tests
+
+Empty inputs; date boundary; missing/invalid numeric fields; duplicate request; email failure; log failure; timezone boundary.
+
+Additionally, verify duplicate request IDs do not create duplicate registry rows, wrong tokens are rejected, malformed JSON is rejected, missing Script Properties produce a configuration error, and mismatched headers are detected. Verify the provider-side effect separately in the relevant service.
+
+## Known limitations
+
+Report accuracy depends on source columns and aggregation logic. Revenue is not guaranteed to exist in source data; this is not an accounting system.
+
+Do not describe the workflow as production-ready until provider credentials, external side effects, retry behavior and failure recovery are tested in a disposable environment.
 
 Files: [workflow.json](./workflow.json) · [Code.gs](./Code.gs)  
 Shared guides: [credentials](../CREDENTIALS-GUIDE.md) · [testing](../../TESTING-AND-VALIDATION.md)
