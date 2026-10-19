@@ -1,32 +1,66 @@
 # 13 — YouTube Publishing Assistant
 
 **Maintainer:** Muhammad Farhan  
-**Event type:** `youtube.upload.requested`  
-**Status:** Static-checked template; YouTube OAuth/upload execution not yet verified.
+**Event:** `youtube.upload.requested`  
+**Status:** Queue adapter hardened; YouTube upload and processing-status verification are not live-tested.
 
-## Purpose
+## Purpose and paths
 
-Validate a video metadata request, wait for explicit approval, fetch the video binary from a reachable HTTPS URL, and upload it using n8n's native YouTube node.
+Validate title/description/video URL, require an approval gate, download video binary, upload with n8n's native YouTube node, and return the upload response.
 
-## Input contract
-
-Required: `requestId`, `title`, `description`, and a downloadable `videoUrl` that begins with HTTPS. Optional: `tags` array and `visibility`. A new request without Boolean `approved: true` returns `pending-approval`. Visibility defaults to private; trusted callers can request public or unlisted visibility when approved.
-
-## Workflow path
-
-`Header Auth Webhook / parent entry → validate metadata → approved? → download binary → native YouTube Upload → return video ID/result`
+- Webhook: `Submit YouTube Metadata → Validate Metadata and Default Private → Metadata Valid?`
+- Invalid metadata: `Metadata Valid? (false) → Return Invalid Metadata`
+- Approved: `Metadata Valid? (true) → Explicitly Approved? (true) → Download Video File → Upload Video to YouTube → Return YouTube Upload Result`
+- Pending: `Explicitly Approved? (false) → Return Awaiting Approval`
+- Parent: `Called by Parent Workflow → Normalize Parent Payload → Validate Metadata and Default Private`
 
 ## Configuration
 
-Select YouTube OAuth credentials that have permission to upload to the intended channel. The native node uses region code `US`, category ID `22`, tags and the configured privacy status. The URL must be downloadable by n8n without an interactive login page; the file must fit your instance's memory, execution timeout and provider limits.
+1. Import `workflow.json` into a test n8n Cloud workspace.
+2. Configure Header Auth for the webhook and YouTube OAuth credentials for the intended channel.
+3. Set a supported video URL that n8n can download without an interactive login. Large files may exceed memory, execution-time or provider limits.
+4. Confirm title, description, tags, category ID and region code match the channel's requirements. Current node defaults to category `22` and region `US`.
+5. Keep uploads private while testing. Public/unlisted visibility must be restricted to trusted callers and verified human approval.
+6. Test the native YouTube node schema against the deployed n8n version before activation.
 
-## Tests to run
+## Apps Script queue adapter
 
-Test missing title/description, invalid request ID, inaccessible URL, a large video within safe test limits, `approved: false`, OAuth failure, upload failure, and each privacy mode. Check the video and final visibility in YouTube Studio.
+Set Script Properties `SPREADSHEET_ID` and `FLOWFORGE_TOKEN`; run `setupSheet()` to create/validate `YouTubeQueue` with columns `createdAt, requestId, videoId, title, description, privacyStatus, approvalStatus, uploadStatus, publishedUrl`. Deploy only after reviewing Web App access settings; never commit the token.
 
-## Safety and limits
+Example:
 
-The `approved` Boolean is a caller-supplied gate, not a persisted reviewer approval. Keep untrusted callers from selecting public visibility. Upload success and final processing are different states; the workflow does not yet poll processing status or reconcile an upload that times out after YouTube accepted it. Test binary handling and node-schema compatibility on your n8n version.
+```json
+{
+  "token": "YOUR_SCRIPT_PROPERTY_TOKEN",
+  "requestId": "yt-test-001",
+  "data": {
+    "title": "Private test upload",
+    "description": "Testing the upload request registry.",
+    "privacyStatus": "private",
+    "approvalStatus": "pending",
+    "uploadStatus": "queued"
+  }
+}
+```
+
+The endpoint validates request ID, title length, description length, visibility and status, prevents duplicate request IDs under a script lock, checks sheet headers and blocks unapproved public/unlisted requests. It records a queue row only; it does not upload a video. The queue is separate from n8n unless explicitly connected.
+
+## Acceptance tests
+
+1. Missing request ID/title, overlong title/description, invalid visibility/status and malformed JSON are rejected.
+2. Wrong token, missing Script Properties and mismatched headers fail clearly.
+3. Duplicate request ID does not append a second row.
+4. Unapproved public/unlisted request is rejected; private pending request can be queued.
+5. Download failure, OAuth failure, upload failure and timeout are tested with non-sensitive test media.
+6. Verify the returned video ID in YouTube Studio and separately check processing status and final visibility.
+7. Reconcile ambiguous timeout outcomes before retrying; the current n8n workflow does not have a durable upload idempotency key or processing poller.
+
+## Known limitations
+
+- Caller-supplied `approved: true` is not proof of a reviewer identity or persisted approval.
+- Native node success does not prove YouTube finished processing.
+- Apps Script queue and n8n upload flow are separate unless connected.
+- Live YouTube and Google Sheets execution has not been verified.
 
 Files: [workflow.json](./workflow.json) · [Code.gs](./Code.gs)  
 Shared guides: [credentials](../CREDENTIALS-GUIDE.md) · [testing](../../TESTING-AND-VALIDATION.md)
