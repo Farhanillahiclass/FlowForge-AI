@@ -2,50 +2,57 @@
 
 **A modular n8n A–Z automation system** maintained by **Muhammad Farhan**.
 
-FlowForge-AI contains 20 canonical business workflows and a shared system layer for authenticated ingress, request validation, parent/child orchestration, and centralized error handling. Each business workflow lives in exactly one folder under `workflows/`.
+FlowForge-AI organizes 20 canonical business automation templates behind a shared parent/child orchestration layer. The repository includes n8n JSON exports, workflow-specific setup notes, a static validator, and end-to-end deployment guidance.
 
-> **Current status:** repository structure and static workflow graphs have been checked, and the canonical workflows now have real integration actions instead of `No Operation` nodes. This does **not** prove live n8n execution. Import the files into your n8n instance, select the workflow IDs and credentials, replace remaining configuration placeholders, and complete the test plan before activating.
+> **Honest status:** repository files can be statically inspected, but this project has not been live-executed in the user's n8n Cloud workspace from GitHub. Workflow IDs, credentials, provider permissions, configuration placeholders, and destination-side effects must be configured and verified in n8n. Do not describe a workflow as production-ready until its acceptance tests pass.
+
+## Visual architecture
+
+![FlowForge-AI parent-child system architecture](docs/images/flowforge-architecture.svg)
+
+The system routes a validated request through `00 - Main Ingress` and `01 - Request Processor` to one of the 20 canonical child workflows. `90 - Central Error Handler` must be assigned in the n8n Error Workflow settings to receive automatic error events.
+
+## End-to-end readiness process
+
+![FlowForge-AI end-to-end readiness path](docs/images/end-to-end-readiness.svg)
 
 ## A–Z architecture
 
 ```text
-Authenticated Webhook
-        |
-        v
-00 Main Ingress
-  - validate requestId, eventType, object data
-  - reject malformed envelope
-        |
-        v
-01 Request Processor
-  - map eventType to one canonical child workflow
-        |
-        +-- 01 lead.created ----------------------> Lead Capture & CRM
-        +-- 02 lead.score_requested -------------> Lead Scoring & Routing
-        +-- 03 email.followup.dispatch ----------> Email Follow-up
-        +-- 04 inbox.message.received -----------> Inbox Triage
-        +-- 05 support.ticket.created -----------> Customer Support
-        +-- 06 support.faq.question -------------> FAQ / Human Handoff
-        +-- 07 meeting.booking.requested --------> Meeting Booking
-        +-- 08 meeting.reminder.dispatch --------> Meeting Reminders
-        +-- 09 client.onboarding.start ----------> Client Onboarding
-        +-- 10 invoice.reminder.dispatch ---------> Invoice Reminders
-        +-- 11 content.draft.requested ----------> Content Creation & Approval
-        +-- 12 instagram.publish.requested ------> Instagram Publishing
-        +-- 13 youtube.upload.requested ---------> YouTube Upload
-        +-- 14 content.repurpose.requested ------> Content Repurposing
-        +-- 15 newsletter.campaign.requested ----> Newsletter Campaign
-        +-- 16 business.report.generate ---------> Weekly Business Report
-        +-- 17 feedback.received ----------------> Feedback Routing
-        +-- 18 workflow.error.received ----------> Error Monitor
-        +-- 19 api.health.check -----------------> API Health Monitor
-        +-- 20 telegram.command.received --------> Telegram Assistant
+External caller
+  |
+  | HTTPS + Header Auth + requestId/eventType/data
+  v
+system/00-main-ingress.json
+  | validate envelope
+  v
+system/01-request-processor.json
+  | map eventType -> one canonical child
+  +-- lead.created ------------------------> 01 Lead Capture & CRM
+  +-- lead.score_requested ---------------> 02 Lead Scoring & Routing
+  +-- email.followup.dispatch -------------> 03 Email Follow-up Sequence
+  +-- inbox.message.received -------------> 04 Inbox Triage Assistant
+  +-- support.ticket.created -------------> 05 Customer Support Desk
+  +-- support.faq.question ---------------> 06 FAQ & Human Handoff
+  +-- meeting.booking.requested ----------> 07 Meeting Booking System
+  +-- meeting.reminder.dispatch ----------> 08 Meeting Reminders
+  +-- client.onboarding.start ------------> 09 Client Onboarding
+  +-- invoice.reminder.dispatch ----------> 10 Invoice & Payment Reminders
+  +-- content.draft.requested ------------> 11 Content Creation & Approval
+  +-- instagram.publish.requested --------> 12 Instagram Publishing
+  +-- youtube.upload.requested -----------> 13 YouTube Publishing Assistant
+  +-- content.repurpose.requested --------> 14 Content Repurposing
+  +-- newsletter.campaign.requested ------> 15 Newsletter Campaign Builder
+  +-- business.report.generate -----------> 16 Weekly Business Report
+  +-- feedback.received ------------------> 17 Feedback Routing
+  +-- workflow.error.received ------------> 18 Workflow Error Monitor
+  +-- api.health.check -------------------> 19 API Health Monitor
+  +-- telegram.command.received ----------> 20 Telegram Business Assistant
 
-Unhandled execution failure --------------------> 90 Central Error Handler
-                                                    sanitized log + alert
+Configured n8n Error Workflow ----------------> 90 Central Error Handler
 ```
 
-Every routed node references a **canonical workflow folder**, not a second copy of its JSON. The workflow ID placeholders must be bound to the imported workflows in your n8n instance. Read [system deployment instructions](system/README.md).
+The workflow IDs in exported JSON are workspace-specific placeholders. Select the real imported child workflows in the Execute Sub-workflow nodes in your n8n Cloud workspace.
 
 ## Workflow catalog
 
@@ -72,20 +79,22 @@ Every routed node references a **canonical workflow folder**, not a second copy 
 | 19 | API Health Monitor | Reliability | [Open](workflows/19-api-health-monitor/README.md) |
 | 20 | Telegram Business Assistant | Messaging | [Open](workflows/20-telegram-business-assistant/README.md) |
 
-Browse the [complete workflow index](workflows/README.md) and [credential matrix](workflows/CREDENTIALS-GUIDE.md).
+Browse the [complete workflow index](workflows/README.md), [credentials guide](workflows/CREDENTIALS-GUIDE.md), and [parent-child orchestration guide](system/PARENT-CHILD-ORCHESTRATION.md).
 
 ## Repository layout
 
 ```text
 FlowForge-AI/
-├── .github/workflows/         # Static checks on pushes and PRs
-├── docs/                      # Architecture and contribution guide
-├── scripts/                   # Repository validator
+├── .github/workflows/          # Static checks on pushes and PRs
+├── docs/                       # Architecture, contribution guide, SVG diagrams
+├── scripts/                    # Repository validator
 ├── system/
 │   ├── 00-main-ingress.json
 │   ├── 01-request-processor.json
 │   ├── 90-central-error-handler.json
-│   └── README.md
+│   ├── README.md
+│   ├── N8N-CLOUD-2X-DEPLOYMENT.md
+│   └── PARENT-CHILD-ORCHESTRATION.md
 ├── workflows/
 │   ├── README.md
 │   ├── CREDENTIALS-GUIDE.md
@@ -98,17 +107,38 @@ FlowForge-AI/
 └── README.md
 ```
 
-The former root-level numbered JSON copies and the mirrored `apps-script/` / `workflow-guides/` directories are removed. Per-workflow folders are the single source of truth. The old one-off demo subflows in the system directory have also been removed to avoid parallel copies of lead/support logic.
+Each business workflow has one canonical export at `workflows/<slug>/workflow.json`. Avoid reintroducing duplicate root-level JSON copies or parallel guide folders.
 
-## Quick start
+## Quick start — n8n Cloud 2.x
 
-1. Read [architecture](docs/ARCHITECTURE.md) and [credentials setup](workflows/CREDENTIALS-GUIDE.md).
-2. Import the 20 canonical `workflows/<slug>/workflow.json` files into a **test** n8n project.
-3. Import `system/01-request-processor.json`; select the correct imported child workflow ID in all 20 Execute Sub-workflow nodes.
-4. Import `system/00-main-ingress.json`; select the Request Processor workflow and configure Webhook Header Auth.
-5. Import `system/90-central-error-handler.json`; configure the operations log and alert destination, then assign it under Workflow Settings → Error Workflow for the workflows you want to monitor.
-6. Configure provider credentials, spreadsheet IDs/tabs, recipient emails, Graph API settings, and the other `REPLACE_WITH_...` placeholders inside n8n.
-7. Test success, invalid payload, duplicate request, provider failure, approval gates, and actual destination-side effects. Keep workflows inactive until review is complete.
+1. Read [n8n Cloud 2.x deployment guide](system/N8N-CLOUD-2X-DEPLOYMENT.md), [system instructions](system/README.md), and [credentials guide](workflows/CREDENTIALS-GUIDE.md).
+2. Import the 20 canonical child JSON files into a **test project**. Keep them inactive.
+3. Configure credentials and replace provider-specific placeholders inside n8n.
+4. Import `system/01-request-processor.json`; select the correct child workflow in each of its 20 Execute Sub-workflow nodes.
+5. Import `system/00-main-ingress.json`; select the Request Processor workflow and configure Header Auth.
+6. Import `system/90-central-error-handler.json`; configure its log and alert destination, then assign it in **Workflow Settings → Error Workflow** for workflows that should report errors.
+7. Test each child directly if direct access is intended, and test every route through Main Ingress using synthetic data.
+8. Inspect n8n execution history and verify the actual destination (sheet, inbox, calendar, API, or test account). Record the execution ID and result.
+9. Keep customer-facing messages, invoice reminders, newsletters, and public publishing disabled until the applicable acceptance tests pass.
+
+Example parent envelope:
+
+```json
+{
+  "requestId": "test-lead-0001",
+  "eventType": "lead.created",
+  "source": "flowforge-test",
+  "occurredAt": "2026-10-19T09:00:00.000Z",
+  "data": {
+    "name": "Test Person",
+    "email": "test@example.com",
+    "company": "Example Test Co",
+    "message": "Synthetic test lead"
+  }
+}
+```
+
+Use a stable `requestId` when deliberately retrying the same event. Test with synthetic records and test recipients only.
 
 ## Validate locally
 
@@ -118,18 +148,43 @@ Requires Python 3.10 or later.
 python scripts/validate_workflows.py
 ```
 
-The static validator checks canonical folder structure, JSON graph references, authentication on Webhook nodes, duplicate copies, and missing `No Operation` placeholders. GitHub Actions runs the same checks on pushes and pull requests.
+The validator checks canonical folder structure, JSON syntax and graph references, node identity uniqueness, webhook authentication, expected system files, and parent route consistency. GitHub Actions runs static validation on pushes and pull requests.
 
-**Important:** static validation is not a live n8n test. This environment cannot select your private n8n workflow IDs, grant OAuth credentials, deploy Apps Script, verify provider permissions, or inspect destination-side effects. Read [Testing & Validation](TESTING-AND-VALIDATION.md).
+**Static validation is not an n8n runtime test.** It cannot verify n8n 2.x node schema compatibility, OAuth credentials, API permissions, schedule behavior, provider-side effects, or exact-once processing.
+
+## Completion status and known gaps
+
+A workflow is complete for deployment only after the target workspace has valid credentials/configuration, correct parent-child binding, and passing positive, invalid-input, retry/duplicate, provider-failure, and destination-verification tests.
+
+Known areas requiring extra attention:
+- Google Sheets read-before-write is not strict exactly-once protection under concurrent requests.
+- Meeting booking needs availability/conflict checks before being treated as production-safe.
+- Reminder and invoice workflows need retry reconciliation when an external send succeeds but logging fails.
+- Content review messages do not automatically constitute a persistent approval callback.
+- Instagram and YouTube uploads require destination-side processing/status verification.
+- Newsletter sends require consent and unsubscribe suppression tests.
+- The central Error Workflow must be assigned in n8n settings; importing it alone does not monitor workflows.
+- Telegram inbound requests must be delivered through a trusted Telegram Trigger or authenticated gateway.
+
+See [Testing & Validation](TESTING-AND-VALIDATION.md) and [Parent–Child Orchestration](system/PARENT-CHILD-ORCHESTRATION.md) for acceptance criteria and evidence recording.
+
+## Official n8n documentation
+
+- [n8n documentation home](https://docs.n8n.io/)
+- [Sub-workflows and Execute Sub-workflow nodes](https://docs.n8n.io/flow-logic/subworkflows/)
+- [Error handling](https://docs.n8n.io/flow-logic/error-handling/)
+- [Webhook node](https://docs.n8n.io/integrations/builtin/core-nodes/n8n-nodes-base.webhook/)
+- [Execution history and retry](https://docs.n8n.io/workflows/executions/all-executions/)
+- [Data mapping and expressions](https://docs.n8n.io/data/data-mapping/data-mapping-ui/)
+- [Security audit](https://docs.n8n.io/hosting/securing/security-audit/)
 
 ## Security and reliability
 
-- Webhook triggers use Header Auth in these example exports; select the credential in your own n8n instance.
-- Keep API keys, OAuth tokens, and real customer data out of Git.
-- The request contract needs a stable `requestId` for duplicate handling.
-- Read-before-write checks against Google Sheets are starter idempotency, not strict exactly-once guarantees: concurrent calls and uncertain timeouts need reconciliation or a database unique constraint.
-- Publishing, bulk email, customer messaging, and financial reminders remain inactive until approvals, consent/suppression, and failure paths have been verified.
-- Do not interpret a successful JSON parse, HTTP response, or GitHub CI pass as proof that an email, calendar booking, upload, or publish action succeeded.
+- Keep API keys, OAuth tokens, webhook secrets, and real customer data out of Git and chat.
+- Configure Header Auth credentials in n8n, not in exported JSON.
+- Treat timeouts after external side effects as uncertain until reconciled.
+- Require explicit approval and consent checks for publishing, newsletters, and customer-facing communications.
+- Do not interpret a JSON parse, HTTP response, or GitHub CI pass as proof that a real email, booking, upload, or publish succeeded.
 
 ## Maintainer
 
