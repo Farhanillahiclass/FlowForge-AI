@@ -44,8 +44,12 @@ function doPost(e) {
   const requestId = String(payload.requestId || "").trim();
   const email = String(data.email || "").trim().toLowerCase();
   const contactId = String(data.contactId || requestId).trim();
-  const consent = data.consent === true || String(data.consent || "").toLowerCase() === "yes" || String(data.consent || "").toLowerCase() === "true";
-  const optedOut = data.optedOut === true || data.unsubscribed === true || ["yes","true"].includes(String(data.optedOut || data.unsubscribed || "").toLowerCase());
+  const consentText = String(data.consent == null ? "" : data.consent).toLowerCase();
+  const consent = data.consent === true || consentText === "yes" || consentText === "true";
+  const optedOutText = String(data.optedOut == null ? "" : data.optedOut).toLowerCase();
+  const unsubscribedText = String(data.unsubscribed == null ? "" : data.unsubscribed).toLowerCase();
+  const optedOut = data.optedOut === true || optedOutText === "yes" || optedOutText === "true"
+    || data.unsubscribed === true || unsubscribedText === "yes" || unsubscribedText === "true";
   const dueRaw = String(data.nextFollowUpAt || "").trim();
   const dueMs = Date.parse(dueRaw);
   const count = data.followUpCount === "" || data.followUpCount == null ? 0 : Number(data.followUpCount);
