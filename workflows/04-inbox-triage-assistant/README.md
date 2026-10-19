@@ -2,34 +2,62 @@
 
 **Maintainer:** Muhammad Farhan  
 **Event type:** `inbox.message.received`  
-**Status:** Static-checked template; live provider execution not yet verified.
+**Status:** Apps Script rule-based triage intake added; n8n/provider execution not verified.
 
 ## Purpose
 
-Classify an incoming message with rule-based priority and category labels, log normal messages into an inbox queue, and log plus alert support for urgent messages.
+The n8n workflow receives inbox events, normalizes message data, applies classification rules or a configured classifier, routes uncertain cases for human review, and records a ticket/triage result. The standalone Apps Script adapter below can accept and classify a submitted message payload, but it does not connect to Gmail/Outlook by itself.
 
-## Input contract
+## Node-by-node implementation target
 
-The Header Auth Webhook expects fields such as `requestId` or `messageId`, `from`, `subject`, and `text` (or `snippet`). The current priority keywords include urgent/asap/blocked/outage/security/payment failed. Categories include billing, technical, scheduling and general.
+`Gmail/Outlook Trigger or authenticated Webhook → Normalize message → Deduplicate by provider message ID → Classify category/priority → Confidence/review decision → Create/update ticket or triage row → Notify owner → Persist outcome`
 
-## Workflow path
+Do not claim that an LLM is being used unless an actual model node and credential are configured. Rule-based classification is acceptable for the starter implementation and should route ambiguous cases to a human.
 
-`Header Auth Webhook / parent entry → classify → High Priority? →`
+## Apps Script intake adapter (`Code.gs`)
 
-- High priority: append the item to `InboxQueue`, then notify the configured support inbox with Gmail.
-- Normal priority: append the item to `InboxQueue`.
+Set `SPREADSHEET_ID` and `FLOWFORGE_TOKEN` in Apps Script Script Properties and run `setupSheet()` once. Never commit the token. This endpoint requires `requestId`, provider `messageId`, a valid sender email, and a subject or body. It applies transparent keyword rules for category and priority, deduplicates by request ID or message ID, protects sheet values against formula injection, and logs a short body summary.
 
-## Configuration
+Example request:
 
-Select Google Sheets and Gmail OAuth credentials. Replace `REPLACE_WITH_INBOX_SPREADSHEET_ID` and `REPLACE_WITH_SUPPORT_EMAIL`. Create an `InboxQueue` tab with columns for request ID, sender, subject, text, priority, category, status and received time.
+```json
+{
+  "token": "YOUR_SCRIPT_PROPERTY_TOKEN",
+  "requestId": "inbox-test-001",
+  "data": {
+    "messageId": "provider-message-001",
+    "sender": "customer@example.com",
+    "subject": "Urgent: payment failed",
+    "body": "I need help with a failed payment."
+  }
+}
+```
 
-## Tests to run
+The result contains a `category` (`billing`, `sales`, `support`, `low-priority`, or `other`) and `priority` (`high`, `medium`, or `normal`). These are starter keyword rules, not an AI judgement. Review before taking sensitive or customer-impacting action.
 
-Test urgent and normal messages, each category, empty inputs, duplicate message IDs, sheet permission failures, and alert-email failure. Verify the priority outcome and actual queue row.
+## n8n configuration
+
+1. Import `workflow.json` into a test n8n Cloud workspace.
+2. Select the correct provider credential for the inbox trigger and destination system.
+3. Replace all spreadsheet/ticket/notification placeholders.
+4. Set the human-review destination and define the fallback behavior when classification is ambiguous.
+5. Keep the workflow inactive until the acceptance tests pass.
+
+## Acceptance tests
+
+1. Billing email routes to billing; pricing/demo email routes to sales; issue/bug email routes to support.
+2. “Urgent” or “cannot access” is marked high priority.
+3. Empty subject and body, invalid sender, missing request ID or missing message ID are rejected by Apps Script.
+4. Repeated request ID or provider message ID does not create a second row.
+5. Ambiguous messages reach the configured human-review path in n8n.
+6. Wrong token, missing Script Properties, and sheet header mismatch fail clearly.
+7. Confirm that stored summary and logs contain no unnecessary sensitive message content.
 
 ## Limits
 
-Classification is keyword-based, not an LLM classifier, and can miss context or produce false positives. This workflow does not connect to Gmail as an inbox trigger; it accepts a webhook message event. Add a real mailbox trigger and a durable unique constraint on `requestId` before relying on it as a production inbox system.
+- The Apps Script adapter classifies and logs submitted data; it does not fetch mail from Gmail/Outlook or send replies.
+- Keyword rules can misclassify messages. Use human review for uncertain cases and do not automatically perform sensitive actions from classification alone.
+- The n8n workflow and Apps Script endpoint are separate paths unless an HTTP Request node explicitly connects them.
+- Live provider execution has not been verified.
 
-Files: [workflow.json](./workflow.json) · [Code.gs](./Code.gs)  
-Shared guides: [credentials](../CREDENTIALS-GUIDE.md) · [testing](../../TESTING-AND-VALIDATION.md)
+Files: [workflow.json](./workflow.json) · [Code.gs](./Code.gs)
