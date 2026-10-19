@@ -2,31 +2,86 @@
 
 **Maintainer:** Muhammad Farhan  
 **Event type:** `content.draft.requested`  
-**Status:** Static-checked template; Anthropic/Sheets/Gmail execution not yet verified.
+**Status:** Source-level updates only; Anthropic, Google Sheets, Gmail and Apps Script execution have not been live-tested.
 
 ## Purpose
 
-Send a writing brief to Anthropic, extract a draft, save it in the `ContentDrafts` sheet, and email the draft to an editor for human review. This workflow drafts content; it does not publish it.
+Generate a content draft from a brief, store it, and request a human review. Approval and rejection are separate, authenticated state transitions. Approval does not publish content; publishing must be a separate platform-specific workflow with its own authorization and verification.
 
-## Input contract
+## n8n node path
 
-Required: a stable `requestId` and a `brief` with at least 20 characters. Optional: `platforms` array, `tone`, `audience`, and `editorEmail`. Direct Webhook requests require Header Auth; parent calls use `eventType: "content.draft.requested"`.
+`Submit Content Brief / Called by Parent Workflow → Normalize Parent Payload (parent path) → Validate Brief and Set Approval Gate → Brief Valid? → Generate Content Draft with Anthropic → Extract Generated Draft → Save Draft and Email for Approval → Email Draft to Editor → Return Draft Status`
 
-## Workflow path
+Invalid brief path: `Brief Valid? (false) → Reject Short Brief`.
 
-`Webhook/parent entry → validate brief → Anthropic Messages API → extract draft → Google Sheets append → Gmail editor review → pending-approval result`
+The current n8n JSON sends an editor notification, but it does not have an authenticated callback that resumes this workflow after a decision. The Apps Script adapter below supplies a persistent decision registry, but it is not automatically connected to n8n.
 
-## Configuration
+## Required configuration
 
-Create a Header Auth credential for the Anthropic API that supplies `x-api-key`; set the `anthropic-version` header and a model name supported by your account. Replace `REPLACE_WITH_SUPPORTED_ANTHROPIC_MODEL`, `REPLACE_WITH_CONTENT_SPREADSHEET_ID`, and `REPLACE_WITH_EDITOR_EMAIL`. Select Google Sheets and Gmail credentials.
+1. Import `workflow.json` into a test n8n Cloud workspace.
+2. Configure Header Auth on the webhook.
+3. Configure Anthropic header credentials with `x-api-key`, set `anthropic-version: 2023-06-01`, and choose a supported model.
+4. Replace `REPLACE_WITH_CONTENT_SPREADSHEET_ID` and `REPLACE_WITH_EDITOR_EMAIL`; select Google Sheets and Gmail OAuth credentials.
+5. Create a `ContentDrafts` tab whose headers match the fields emitted by `Extract Generated Draft`. Check the actual Sheets node mappings before enabling it.
+6. Keep the workflow inactive until acceptance tests pass.
 
-## Tests to run
+## Apps Script approval registry
 
-Test a brief under 20 characters, a valid brief, provider authentication failure, model/HTTP error, empty model response, Sheets failure and editor-email failure. Review the actual saved draft rather than assuming a successful HTTP call means the text is acceptable.
+Set Script Properties `SPREADSHEET_ID` and `FLOWFORGE_TOKEN`. Run `setupSheet()` to create/validate `ContentApproval` and `ContentApprovalAudit`. Deploy as a Web App only after reviewing access settings. Do not commit the token.
 
-## Limits
+### Create a pending draft record
 
-The editor email is a notification, not a persistent approval callback. It does not wait for a reviewer or publish by itself. After human review, send approved content to a platform-specific workflow through its own authenticated input and explicit approval flag. Do not send model-generated claims externally without human fact-checking.
+```json
+{
+  "token": "YOUR_SCRIPT_PROPERTY_TOKEN",
+  "action": "create",
+  "requestId": "content-test-001",
+  "data": {
+    "briefId": "brief-test-001",
+    "platform": "linkedin",
+    "brief": "Write a professional update about our new learning resource.",
+    "draft": "Draft text that the editor will review."
+  }
+}
+```
+
+### Record a reviewer decision
+
+```json
+{
+  "token": "YOUR_SCRIPT_PROPERTY_TOKEN",
+  "action": "decision",
+  "requestId": "content-test-001",
+  "data": {
+    "approvalStatus": "approved",
+    "reviewer": "editor@example.com",
+    "reviewComment": "Reviewed and fact-checked."
+  }
+}
+```
+
+Use `rejected` instead of `approved` to reject. The adapter validates request IDs, brief/draft/platform, reviewer email and decision state; prevents duplicate draft creation; rejects a second final decision; and writes an audit row. The token authenticates the caller but does not establish the real-world identity of the reviewer by itself. Restrict who can call the decision endpoint, and do not treat a user-supplied reviewer email as verified identity.
+
+## Acceptance tests
+
+1. Valid create request records a `pending` row and an audit entry.
+2. Repeated create request with the same request ID returns duplicate without another draft row.
+3. Missing/short brief, missing draft/platform, malformed JSON and wrong token are rejected.
+4. Decision for an unknown request ID returns not found.
+5. Valid approved/rejected decision records reviewer, timestamp and audit event.
+6. Second decision after a final decision returns conflict and does not overwrite the first decision.
+7. Wrong sheet headers and missing Script Properties fail clearly.
+8. Verify the n8n workflow saves the right fields and sends editor email; simulate Anthropic, Sheets and Gmail errors.
+9. Confirm approval does not trigger publication until a separate publishing workflow verifies the approved status.
+
+## Known limitations
+
+- The n8n workflow currently saves to `ContentDrafts`, while the Apps Script registry uses its own `ContentApproval` sheet. They are separate records unless you explicitly connect them with an HTTP Request node and reconcile field mappings.
+- Current n8n email is a notification, not an approval callback.
+- Apps Script records approval/rejection but does not publish content.
+- The endpoint's shared token is not a full per-reviewer identity system. Use a trusted identity provider or protected approval UI for production.
+- A failure between writing the decision and writing the audit row can leave partial state; verify/reconcile sheet records after failures.
+- Live execution has not been verified.
 
 Files: [workflow.json](./workflow.json) · [Code.gs](./Code.gs)  
 Shared guides: [credentials](../CREDENTIALS-GUIDE.md) · [testing](../../TESTING-AND-VALIDATION.md)
