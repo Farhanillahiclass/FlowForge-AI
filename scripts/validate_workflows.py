@@ -256,6 +256,25 @@ def main():
         for required in REQUIRED_WORKFLOW_FILES:
             if not (folder / required).is_file():
                 fail(f"{slug}/{required}", "required file is missing")
+        # The README is the operator handoff: require setup and test guidance.
+        readme_path = folder / "README.md"
+        if readme_path.is_file():
+            readme_text = readme_path.read_text(encoding="utf-8").lower()
+            for phrase in ("acceptance tests", "integration", "known limitations"):
+                if phrase not in readme_text:
+                    fail(f"{slug}/README.md", f"missing operator documentation section: {phrase}")
+        # Apps Script is an adapter and must not be mistaken for a deployed integration.
+        code_path = folder / "Code.gs"
+        if code_path.is_file():
+            code_text = code_path.read_text(encoding="utf-8")
+            if "function doPost" not in code_text:
+                fail(f"{slug}/Code.gs", "missing doPost(e) web-app entry point")
+            if "function setupSheet" not in code_text:
+                warning_count += 1
+                print(f"WARN {slug}/Code.gs: no setupSheet() helper; verify sheet setup manually")
+            if "FLOWFORGE_TOKEN" not in code_text:
+                warning_count += 1
+                print(f"WARN {slug}/Code.gs: no FLOWFORGE_TOKEN marker; review endpoint authentication manually")
         path = folder / "workflow.json"
         if not path.is_file():
             continue
