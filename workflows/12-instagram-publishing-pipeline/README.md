@@ -1,32 +1,71 @@
 # 12 — Instagram Publishing Pipeline
 
 **Maintainer:** Muhammad Farhan  
-**Event type:** `instagram.publish.requested`  
-**Status:** Static-checked template; Meta Graph API execution not yet verified.
+**Event:** `instagram.publish.requested`  
+**Status:** Apps Script request registry hardened; Meta Graph API runtime is not verified.
 
-## Purpose
+## What this workflow does
 
-Validate a caption and a public HTTPS media URL, require an explicit `approved: true` value, create a Meta media container, wait briefly, and request publication.
+Accepts an authenticated n8n webhook request, validates a caption and HTTPS media URL, checks an approval flag, creates a Meta media container, waits, and requests publication. This is not production-ready until container status polling, durable idempotency and live account testing are completed.
 
-## Input contract
+## Node paths
 
-Required: stable `requestId`, non-empty `caption`, and accessible `imageUrl` beginning with HTTPS. A publishing attempt occurs only when the caller includes Boolean `approved: true`; otherwise the workflow returns `pending-approval`.
+- Webhook path: `Receive Instagram Draft → Validate Caption and Public Media URL → Draft Valid?`
+- Invalid: `Draft Valid? (false) → Return Invalid Draft`
+- Valid and approved: `Draft Valid? (true) → Explicitly Approved? (true) → Create Instagram Media Container → Wait for Media Processing → Publish Approved Media → Return Instagram Publish Result`
+- Valid but not approved: `Explicitly Approved? (false) → Return Awaiting Approval`
+- Parent path: `Called by Parent Workflow → Normalize Parent Payload → Validate Caption and Public Media URL`
 
-## Workflow path
+## Configure integrations
 
-`Header Auth Webhook / parent entry → validate → approved? → Meta media container → wait 10 seconds → media publish`
+1. Import `workflow.json` into a test n8n Cloud workspace.
+2. Configure Header Auth for the webhook. Do not use a caller-controlled `approved: true` flag as proof of human approval; restrict webhook callers or connect a persisted approval registry.
+3. Configure an HTTP Header Auth credential for Meta using a protected access token; never paste tokens into the JSON.
+4. Replace `REPLACE_WITH_GRAPH_API_VERSION` and `REPLACE_WITH_IG_USER_ID` in both HTTP Request URLs.
+5. Use an Instagram professional account connected to an eligible Facebook Page and grant the required publishing permissions.
+6. Supply a public HTTPS image URL accessible to Meta. Validate media format and size against the current Meta API requirements.
+7. Keep the workflow inactive until tests pass.
 
-## Configuration
+## Apps Script queue registry
 
-Replace `REPLACE_WITH_GRAPH_API_VERSION` and `REPLACE_WITH_IG_USER_ID`. Set an n8n Header Auth credential for the Meta access token and select it in both HTTP Request nodes. The connected Instagram account must be eligible for publishing and have required Meta permissions. The media URL must be reachable by Meta.
+Set Script Properties `SPREADSHEET_ID` and `FLOWFORGE_TOKEN`; run `setupSheet()`. The script creates/validates the `InstagramQueue` tab with columns `createdAt, requestId, contentId, caption, mediaUrl, approvalStatus, publishStatus, publishedAt, error`. Deploy only after reviewing Web App access settings.
 
-## Tests to run
+Example request:
 
-Use an internal test account and non-sensitive media. Test missing caption, HTTP URL, inaccessible media, `approved: false`, token/permission failure, container creation error, media still processing, and publish failure. Confirm the post appears in the intended Instagram account.
+```json
+{
+  "token": "YOUR_SCRIPT_PROPERTY_TOKEN",
+  "requestId": "ig-test-001",
+  "data": {
+    "contentId": "post-001",
+    "caption": "Test caption",
+    "mediaUrl": "https://example.com/public-test-image.jpg",
+    "approvalStatus": "pending",
+    "publishStatus": "queued"
+  }
+}
+```
 
-## Safety and limits
+The endpoint validates fields, authenticates with a shared secret, checks exact headers and rejects duplicate request IDs under a lock. It only queues/logs a record; it does not call Meta or publish content. This queue is separate from n8n unless an HTTP Request node is explicitly connected.
 
-The `approved` Boolean is a **caller-supplied gate**, not proof of a separate reviewer identity or a persisted approval record. Only trusted authenticated callers should be allowed to submit approved publishing requests. The current wait is fixed at 10 seconds; it does not poll container status or reliably handle every processing delay. Add status polling, retry limits, a publish ledger and reconciliation before production use.
+## Acceptance tests
+
+1. Missing request ID, blank/oversized caption, non-HTTPS media URL, invalid approval state, wrong token and malformed JSON are rejected.
+2. Repeating the same request ID does not append a second queue row.
+3. Wrong sheet headers and missing Script Properties return configuration errors.
+4. Unapproved request returns pending approval and does not call Meta.
+5. Simulate Meta authentication failure, invalid media, container creation failure and publication failure.
+6. Check container status before publishing; a fixed 10-second wait is not reliable for every media-processing duration.
+7. Reconcile ambiguous publish timeouts before retrying, because blindly retrying may publish duplicates.
+8. Confirm the post exists on the intended test account before marking it published.
+
+## Known limitations
+
+- `approved: true` is supplied by the caller, not a persisted reviewer identity.
+- Fixed wait does not poll `status_code` for the media container.
+- No durable publishing ledger or reconciliation path is connected to the n8n workflow.
+- The Apps Script registry and n8n workflow are independent until explicitly connected.
+- Live Meta, Sheets and n8n execution has not been verified.
 
 Files: [workflow.json](./workflow.json) · [Code.gs](./Code.gs)  
 Shared guides: [credentials](../CREDENTIALS-GUIDE.md) · [testing](../../TESTING-AND-VALIDATION.md)
