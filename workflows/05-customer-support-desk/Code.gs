@@ -14,6 +14,10 @@ function setupSheet() {
   let sheet = ss.getSheetByName(SHEET_NAME);
   if (!sheet) sheet = ss.insertSheet(SHEET_NAME);
   if (sheet.getLastRow() === 0) sheet.appendRow(HEADERS);
+  else {
+    const current = sheet.getRange(1, 1, 1, HEADERS.length).getDisplayValues()[0];
+    if (HEADERS.some((h, i) => current[i] !== h)) throw new Error('Header mismatch in ' + SHEET_NAME + '. Expected: ' + HEADERS.join(', '));
+  }
   return 'Ready: ' + SHEET_NAME;
 }
 function doGet() {
@@ -26,7 +30,7 @@ function doPost(e) {
   let payload;
   try { payload = JSON.parse(e && e.postData && e.postData.contents || '{}'); }
   catch (_) { return output_({ok:false,error:'Invalid JSON'}); }
-  if (!payload.token || payload.token !== expected) return output_({ok:false,error:'Unauthorized'});
+  if (!payload.token || !constantTimeEqual_(String(payload.token), expected)) return output_({ok:false,error:'Unauthorized'});
   if (!payload.data || typeof payload.data !== 'object' || Array.isArray(payload.data))
     return output_({ok:false,error:'data must be a JSON object'});
   const requestId = String(payload.requestId || '').trim();
@@ -38,6 +42,8 @@ function doPost(e) {
     if (!id) return output_({ok:false,error:'SPREADSHEET_ID is not configured'});
     const sheet = SpreadsheetApp.openById(id).getSheetByName(SHEET_NAME);
     if (!sheet || sheet.getLastRow() === 0) return output_({ok:false,error:'Run setupSheet() first'});
+    const currentHeaders = sheet.getRange(1, 1, 1, HEADERS.length).getDisplayValues()[0];
+    if (HEADERS.some((h, i) => currentHeaders[i] !== h)) return output_({ok:false,error:'Sheet headers do not match; run setupSheet() after backing up data'});
     const idCol = HEADERS.indexOf('requestId') + 1;
     if (idCol > 0 && sheet.getLastRow() > 1) {
       const ids = sheet.getRange(2,idCol,sheet.getLastRow()-1,1).getDisplayValues().flat();
@@ -63,4 +69,11 @@ function safe_(value) {
 function output_(obj) {
   return ContentService.createTextOutput(JSON.stringify(obj))
     .setMimeType(ContentService.MimeType.JSON);
+}
+
+function constantTimeEqual_(a, b) {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
 }
