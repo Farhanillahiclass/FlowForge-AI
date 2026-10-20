@@ -12,6 +12,10 @@ FlowForge-AI organizes 20 canonical business automation templates behind a share
 
 The system routes a validated request through `00 - Main Ingress` and `01 - Request Processor` to one of the 20 canonical child workflows. `90 - Central Error Handler` must be assigned in the n8n Error Workflow settings to receive automatic error events.
 
+## Visual workflow gallery
+
+Browse the [Visual Workflow Gallery](docs/WORKFLOW-GALLERY.md) for a categorized index of all 20 templates, architecture entry points, and setup guidance.
+
 ## End-to-end readiness process
 
 ![FlowForge-AI end-to-end readiness path](docs/images/end-to-end-readiness.svg)
