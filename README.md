@@ -14,7 +14,9 @@ The system routes a validated request through `00 - Main Ingress` and `01 - Requ
 
 ## Visual workflow gallery
 
-Browse the [Visual Workflow Gallery](docs/WORKFLOW-GALLERY.md) for a categorized index of all 20 templates, architecture entry points, and setup guidance.
+- **[Open the interactive gallery](https://farhanillahiclass.github.io/FlowForge-AI/)** — searchable cards, category filters, and direct links to each workflow JSON and setup guide (available once GitHub Pages deployment succeeds).
+- [Read the gallery guide](docs/WORKFLOW-GALLERY.md) for the catalog, architecture entry points, and safe setup guidance.
+- Gallery source: [`site/`](site/). Deployment workflow: [`.github/workflows/deploy-gallery.yml`](.github/workflows/deploy-gallery.yml).
 
 ## End-to-end readiness process
 
