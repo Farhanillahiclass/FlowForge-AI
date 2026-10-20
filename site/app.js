@@ -44,7 +44,8 @@
       '<div class="card-top"><span class="workflow-number">FLOW / '+String(item.n).padStart(2,"0")+'</span><span class="category-label">'+esc(item.category)+'</span></div>'+
       '<div class="card-icon" aria-hidden="true">'+esc(item.icon)+'</div>'+
       '<h3>'+esc(item.name)+'</h3><p>'+esc(item.desc)+'</p>'+
-      '<div class="card-footer"><a class="card-action" href="'+url.json+'" target="_blank" rel="noreferrer">'+iconExternal+' JSON export</a><span class="action-divider"></span><a class="card-action secondary" href="'+url.readme+'" target="_blank" rel="noreferrer">Setup guide '+iconExternal+'</a></div></article>';
+      '<div class="card-footer"><a class="card-action" href="'+url.json+'" target="_blank" rel="noreferrer">'+iconExternal+' JSON export</a><span class="action-divider"></span><a class="card-action secondary" href="'+url.readme+'" target="_blank" rel="noreferrer">Setup guide '+iconExternal+'</a></div>'+
+      '<div class="card-utility"><button class="copy-json-link" type="button" data-copy-url="'+url.json+'" aria-label="Copy JSON link for '+esc(item.name)+'">Copy JSON link <span aria-hidden="true">⧉</span></button><span class="card-safety"><span aria-hidden="true">●</span> Configure before activation</span></div></article>';
   }
   function render(){
     const q=search.value.trim().toLowerCase();
@@ -69,6 +70,21 @@
       }
     });
   }
+  grid.addEventListener("click",async e=>{
+    const button=e.target.closest("[data-copy-url]");
+    if(!button)return;
+    const url=button.dataset.copyUrl;
+    try{
+      await navigator.clipboard.writeText(url);
+      button.innerHTML='Copied link <span aria-hidden="true">✓</span>';
+      button.classList.add("is-copied");
+      const toast=document.querySelector("#gallery-toast");
+      if(toast){toast.textContent="Canonical workflow JSON link copied";toast.classList.add("is-visible");}
+      window.setTimeout(()=>{button.innerHTML='Copy JSON link <span aria-hidden="true">⧉</span>';button.classList.remove("is-copied");if(toast)toast.classList.remove("is-visible");},2200);
+    }catch(error){
+      window.prompt("Copy this canonical workflow JSON link:",url);
+    }
+  });
   filters.addEventListener("click",e=>{const btn=e.target.closest("[data-category]");if(!btn)return;category=btn.dataset.category;render();});
   search.addEventListener("input",render);
   sort.addEventListener("change",render);
