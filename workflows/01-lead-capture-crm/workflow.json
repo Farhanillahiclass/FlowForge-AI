@@ -29,7 +29,7 @@
       ],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const b=$json.body||$json; const name=String(b.name||'').trim(); const email=String(b.email||'').trim().toLowerCase(); const requestId=String(b.requestId||b.eventId||'').trim(); const valid=!!requestId&&!!name&&/^[^\\\\s@]+@[^\\\\s@]+\\\\.[^\\\\s@]+$/.test(email); return [{json:{requestId,eventType:String(b.eventType||'lead.created'),name,email,company:String(b.company||'').trim(),source:String(b.source||'website'),message:String(b.message||'').trim(),valid,status:'new',receivedAt:new Date().toISOString()}}];"
+        "jsCode": "const b=$json.body||$json; const name=String(b.name||'').trim(); const email=String(b.email||'').trim().toLowerCase(); const requestId=String(b.requestId||b.eventId||'').trim(); const valid=!!requestId&&!!name&&/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email); return [{json:{requestId,eventType:String(b.eventType||'lead.created'),name,email,company:String(b.company||'').trim(),source:String(b.source||'website'),message:String(b.message||'').trim(),valid,status:'new',receivedAt:new Date().toISOString()}}];"
       }
     },
     {
