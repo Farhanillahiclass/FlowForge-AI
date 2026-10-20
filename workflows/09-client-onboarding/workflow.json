@@ -29,7 +29,7 @@
       ],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const b=$json.body||$json; const name=String(b.clientName||b.name||'').trim(); const email=String(b.email||'').trim().toLowerCase(); const requestId=String(b.requestId||b.eventId||'').trim(); const valid=!!requestId&&!!name&&/^[^\\\\s@]+@[^\\\\s@]+\\\\.[^\\\\s@]+$/.test(email); return [{json:{requestId,clientName:name,email,service:b.service||'not specified',owner:b.owner||'unassigned',valid,status:'onboarding-pending',createdAt:new Date().toISOString(),checklist:['send-welcome-email','create-client-record','schedule-kickoff','collect-requirements']}}];"
+        "jsCode": "const b=$json.body||$json; const name=String(b.clientName||b.name||'').trim(); const email=String(b.email||'').trim().toLowerCase(); const requestId=String(b.requestId||b.eventId||'').trim(); const valid=!!requestId&&!!name&&/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email); return [{json:{requestId,clientName:name,email,service:b.service||'not specified',owner:b.owner||'unassigned',valid,status:'onboarding-pending',createdAt:new Date().toISOString(),checklist:['send-welcome-email','create-client-record','schedule-kickoff','collect-requirements']}}];"
       }
     },
     {
