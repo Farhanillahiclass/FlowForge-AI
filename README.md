@@ -18,6 +18,10 @@ The system routes a validated request through `00 - Main Ingress` and `01 - Requ
 - [Read the gallery guide](docs/WORKFLOW-GALLERY.md) for the catalog, architecture entry points, and safe setup guidance.
 - Gallery source: [`site/`](site/). Deployment workflow: [`.github/workflows/deploy-gallery.yml`](.github/workflows/deploy-gallery.yml).
 
+## Workflow quality and safe operations
+
+Use the [Workflow Quality & Safe Operations Guide](docs/WORKFLOW-QUALITY.md) for a repeatable import checklist, acceptance-test matrix, error/retry guidance, and production-readiness criteria across all 20 workflows.
+
 ## End-to-end readiness process
 
 ![FlowForge-AI end-to-end readiness path](docs/images/end-to-end-readiness.svg)
