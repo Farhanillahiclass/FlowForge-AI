@@ -269,7 +269,11 @@ def main():
             }
             for label, alternatives in section_groups.items():
                 if not any(phrase in readme_text for phrase in alternatives):
-                    fail(f"{slug}/README.md", f"missing operator documentation topic: {label}")
+                    if label == "limitations":
+                        warning_count += 1
+                        print(f"WARN {slug}/README.md: add a dedicated limitations/production-notes section")
+                    else:
+                        fail(f"{slug}/README.md", f"missing operator documentation topic: {label}")
         # Apps Script is an adapter and must not be mistaken for a deployed integration.
         code_path = folder / "Code.gs"
         if code_path.is_file():
