@@ -29,7 +29,7 @@
       ],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const b=$json.body||$json; const start=Date.parse(b.start); const end=Date.parse(b.end); const email=String(b.email||'').trim().toLowerCase(); const requestId=String(b.requestId||b.eventId||'').trim(); const valid=!!requestId&&!!String(b.name||'').trim()&&/^[^\\\\s@]+@[^\\\\s@]+\\\\.[^\\\\s@]+$/.test(email)&&Number.isFinite(start)&&Number.isFinite(end)&&end>start&&start>Date.now(); return [{json:{requestId,name:String(b.name||'').trim(),email,start:b.start||'',end:b.end||'',timezone:b.timezone||'UTC',topic:b.topic||'Discovery call',valid,createdAt:new Date().toISOString()}}];"
+        "jsCode": "const b=$json.body||$json; const start=Date.parse(b.start); const end=Date.parse(b.end); const email=String(b.email||'').trim().toLowerCase(); const requestId=String(b.requestId||b.eventId||'').trim(); const valid=!!requestId&&!!String(b.name||'').trim()&&/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)&&Number.isFinite(start)&&Number.isFinite(end)&&end>start&&start>Date.now(); return [{json:{requestId,name:String(b.name||'').trim(),email,start:b.start||'',end:b.end||'',timezone:b.timezone||'UTC',topic:b.topic||'Discovery call',valid,createdAt:new Date().toISOString()}}];"
       }
     },
     {
