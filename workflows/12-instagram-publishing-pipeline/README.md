@@ -6,14 +6,14 @@
 
 ## What this workflow does
 
-Accepts an authenticated n8n webhook request, validates a caption and HTTPS media URL, checks an approval flag, creates a Meta media container, waits, and requests publication. This is not production-ready until container status polling, durable idempotency and live account testing are completed.
+Accepts an authenticated n8n webhook request and validates a caption and HTTPS media URL. **Publishing is fail-closed:** the workflow deliberately ignores caller-supplied `approved: true` and returns pending approval until a trusted, persisted reviewer-approval lookup is connected. Do not enable publishing until that approval integration, container status polling, durable idempotency and live account testing are complete.
 
 ## Node paths
 
 - Webhook path: `Receive Instagram Draft → Validate Caption and Public Media URL → Draft Valid?`
 - Invalid: `Draft Valid? (false) → Return Invalid Draft`
-- Valid and approved: `Draft Valid? (true) → Explicitly Approved? (true) → Create Instagram Media Container → Wait for Media Processing → Publish Approved Media → Return Instagram Publish Result`
-- Valid but not approved: `Explicitly Approved? (false) → Return Awaiting Approval`
+- Valid request: `Draft Valid? (true) → Explicitly Approved? (false) → Return Awaiting Approval`
+- The approval gate intentionally fails closed; the Meta container/publish nodes remain unreachable until trusted reviewer approval is implemented.
 - Parent path: `Called by Parent Workflow → Normalize Parent Payload → Validate Caption and Public Media URL`
 
 ## Configure integrations
@@ -53,7 +53,7 @@ The endpoint validates fields, authenticates with a shared secret, checks exact 
 1. Missing request ID, blank/oversized caption, non-HTTPS media URL, invalid approval state, wrong token and malformed JSON are rejected.
 2. Repeating the same request ID does not append a second queue row.
 3. Wrong sheet headers and missing Script Properties return configuration errors.
-4. Unapproved request returns pending approval and does not call Meta.
+4. Any request, including one containing `approved: true`, returns pending approval and does not call Meta until trusted approval lookup is implemented.
 5. Simulate Meta authentication failure, invalid media, container creation failure and publication failure.
 6. Check container status before publishing; a fixed 10-second wait is not reliable for every media-processing duration.
 7. Reconcile ambiguous publish timeouts before retrying, because blindly retrying may publish duplicates.
@@ -61,7 +61,7 @@ The endpoint validates fields, authenticates with a shared secret, checks exact 
 
 ## Known limitations
 
-- `approved: true` is supplied by the caller, not a persisted reviewer identity.
+- The n8n approval gate is fail-closed; a persisted reviewer-approval integration is not yet connected.
 - Fixed wait does not poll `status_code` for the media container.
 - No durable publishing ledger or reconciliation path is connected to the n8n workflow.
 - The Apps Script registry and n8n workflow are independent until explicitly connected.
