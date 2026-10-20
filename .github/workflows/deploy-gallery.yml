@@ -38,6 +38,10 @@ jobs:
           assert 'id="workflow-search"' in html
           assert "function render()" in js
           assert "prefers-reduced-motion" in css
+          assert "data-copy-url" in js, "Workflow JSON copy control missing"
+          assert "navigator.clipboard.writeText" in js, "Copy action missing"
+          assert 'id="gallery-toast"' in html, "Accessible copy confirmation missing"
+          assert ".card-utility" in css, "Copy control styles missing"
           slugs = re.findall(r'slug:"([^"]+)"', js)
           assert len(slugs) == 20, f"Expected 20 workflow records, found {len(slugs)}"
           assert len(set(slugs)) == 20, "Duplicate workflow slugs detected"
