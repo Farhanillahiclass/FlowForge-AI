@@ -58,7 +58,7 @@
       ],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const now=Date.now(); return $input.all().filter(i=>String(i.json.status||'').toLowerCase()==='unpaid'&&Number.isFinite(Date.parse(i.json.dueDate))&&Date.parse(i.json.dueDate)<now&&Number(i.json.reminderCount||0)<3&&/^[^\\\\s@]+@[^\\\\s@]+\\\\.[^\\\\s@]+$/.test(String(i.json.email||i.json.billingEmail||''))).map(i=>({json:{...i.json,daysOverdue:Math.floor((now-Date.parse(i.json.dueDate))/86400000),eligibleForReminder:true,requestId:String(i.json.invoiceId||i.json.id||'')}}));"
+        "jsCode": "const now=Date.now(); return $input.all().filter(i=>String(i.json.status||'').toLowerCase()==='unpaid'&&Number.isFinite(Date.parse(i.json.dueDate))&&Date.parse(i.json.dueDate)<now&&Number(i.json.reminderCount||0)<3&&/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(String(i.json.email||i.json.billingEmail||''))).map(i=>({json:{...i.json,daysOverdue:Math.floor((now-Date.parse(i.json.dueDate))/86400000),eligibleForReminder:true,requestId:String(i.json.invoiceId||i.json.id||'')}}));"
       }
     },
     {
