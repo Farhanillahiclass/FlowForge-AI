@@ -1,16 +1,36 @@
 # FlowForge-AI
 
+<div align="center">
+
+<img width="100%" src="https://raw.githubusercontent.com/Farhanillahiclass/Farhanillahiclass/main/assets/flowforge-workflow.svg" alt="Animated FlowForge-AI modular n8n automation architecture" />
+
 **A modular n8n A–Z automation system** maintained by **Muhammad Farhan**.
 
-FlowForge-AI organizes 20 canonical business automation templates behind a shared parent/child orchestration layer. The repository includes n8n JSON exports, workflow-specific setup notes, a static validator, and end-to-end deployment guidance.
+[![Open Workflow Gallery](https://img.shields.io/badge/Explore-Interactive%20Gallery-7C3AED?style=for-the-badge&logo=n8n&logoColor=white)](https://farhanillahiclass.github.io/FlowForge-AI/)
+[![Workflow Count](https://img.shields.io/badge/Business%20Workflows-20-0891B2?style=for-the-badge)](workflows/README.md)
+[![License: MIT](https://img.shields.io/badge/License-MIT-16A34A?style=for-the-badge)](LICENSE)
 
-> **Honest status:** repository files can be statically inspected, but this project has not been live-executed in the user's n8n Cloud workspace from GitHub. Workflow IDs, credentials, provider permissions, configuration placeholders, and destination-side effects must be configured and verified in n8n. Do not describe a workflow as production-ready until its acceptance tests pass.
+[Architecture](docs/images/flowforge-architecture.svg) · [Workflow Catalog](workflows/README.md) · [Deployment Guide](system/N8N-CLOUD-2X-DEPLOYMENT.md) · [Validation Report](TESTING-AND-VALIDATION.md)
+
+</div>
 
 ## Visual architecture
 
 ![FlowForge-AI parent-child system architecture](docs/images/flowforge-architecture.svg)
 
 The system routes a validated request through `00 - Main Ingress` and `01 - Request Processor` to one of the 20 canonical child workflows. `90 - Central Error Handler` must be assigned in the n8n Error Workflow settings to receive automatic error events.
+
+## What this project includes
+
+- **20 reusable business workflows** spanning CRM, support, scheduling, finance operations, content, analytics, monitoring and Telegram.
+- **Shared orchestration** with authenticated ingress, event validation and parent-to-child workflow routing.
+- **Importable n8n JSON exports** plus individual setup guides and credential notes.
+- **Static repository validation** and GitHub Actions checks for structural problems.
+- **A searchable workflow gallery** for browsing the automation library.
+
+> **Runtime status:** This repository provides workflow exports, guides and static checks. You must import and configure the workflows in your own n8n workspace, set credentials, and run acceptance tests before treating any workflow as production-ready.
+
+
 
 ## Visual workflow gallery
 
