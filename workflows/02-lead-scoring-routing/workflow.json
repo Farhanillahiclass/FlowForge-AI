@@ -29,7 +29,7 @@
       ],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const b=$json.body||$json;const requestId=String(b.requestId||b.eventId||'').trim();const name=String(b.name||'').trim();const email=String(b.email||'').trim().toLowerCase();const company=String(b.company||'').trim();const budget=Number(b.budget||0);const timeline=String(b.timeline||'').toLowerCase();const valid=!!requestId&&!!name&&/^[^\\\\s@]+@[^\\\\s@]+\\\\.[^\\\\s@]+$/.test(email)&&Number.isFinite(budget)&&budget>=0;const score=Math.min(100,(company?15:0)+(budget>=5000?35:budget>=1000?20:budget>0?10:0)+(timeline==='urgent'?30:timeline==='soon'?20:10)+(b.decisionMaker===true?20:0));return [{json:{requestId,eventType:String(b.eventType||'lead.score_requested'),name,email,company,budget,timeline,score,tier:score>=65?'hot':score>=40?'warm':'cold',valid,createdAt:new Date().toISOString(),status:'scored'}}];"
+        "jsCode": "const b=$json.body||$json;const requestId=String(b.requestId||b.eventId||'').trim();const name=String(b.name||'').trim();const email=String(b.email||'').trim().toLowerCase();const company=String(b.company||'').trim();const budget=Number(b.budget||0);const timeline=String(b.timeline||'').toLowerCase();const valid=!!requestId&&!!name&&/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)&&Number.isFinite(budget)&&budget>=0;const score=Math.min(100,(company?15:0)+(budget>=5000?35:budget>=1000?20:budget>0?10:0)+(timeline==='urgent'?30:timeline==='soon'?20:10)+(b.decisionMaker===true?20:0));return [{json:{requestId,eventType:String(b.eventType||'lead.score_requested'),name,email,company,budget,timeline,score,tier:score>=65?'hot':score>=40?'warm':'cold',valid,createdAt:new Date().toISOString(),status:'scored'}}];"
       }
     },
     {
