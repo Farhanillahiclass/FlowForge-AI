@@ -97,6 +97,11 @@ def inspect_workflow(path: Path):
 
         if node_type == "n8n-nodes-base.noOp":
             errors.append(f"{name or index}: No Operation placeholder is not accepted")
+
+        if node_type == "n8n-nodes-base.code":
+            js_code = node.get("parameters", {}).get("jsCode", "")
+            if isinstance(js_code, str) and re.search(r"\\\\[sdw.]", js_code):
+                errors.append(f"{name or index}: Code node may contain an over-escaped regex token (for example, \\\\s instead of \\s)")
         if node_type == "n8n-nodes-base.webhook":
             authentication = node.get("parameters", {}).get("authentication")
             if authentication != "headerAuth":
