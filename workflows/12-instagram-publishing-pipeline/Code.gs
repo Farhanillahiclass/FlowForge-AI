@@ -10,7 +10,9 @@ function doPost(e){
  let b;try{b=JSON.parse(e&&e.postData&&e.postData.contents||"{}");}catch(err){return output_({ok:false,status:"rejected",error:"Invalid JSON"});}
  if(!constantTimeEqual_(String(b.token||""),secret))return output_({ok:false,status:"unauthorized",error:"Unauthorized"});
  const d=b.data;if(!d||typeof d!=="object"||Array.isArray(d))return output_({ok:false,status:"rejected",error:"data must be an object"});
- const requestId=String(b.requestId||d.requestId||"").trim(),contentId=String(d.contentId||requestId).trim(),caption=String(d.caption||"").trim(),mediaUrl=String(d.mediaUrl||d.imageUrl||"").trim(),approval=String(d.approvalStatus||"pending").trim().toLowerCase(),status=String(d.publishStatus||"queued").trim().toLowerCase();
+ const requestId=String(b.requestId||d.requestId||"").trim(),contentId=String(d.contentId||requestId).trim(),caption=String(d.caption||"").trim(),mediaUrl=String(d.mediaUrl||d.imageUrl||"").trim();
+ // Approval and publish state are server-controlled. Never trust client-supplied status flags.
+ const approval="pending",status="queued";
  if(!requestId||requestId.length>200)return output_({ok:false,status:"rejected",error:"requestId is required (max 200 chars)"});
  if(!caption||caption.length>2200)return output_({ok:false,status:"rejected",requestId,error:"caption must contain 1–2200 characters"});
  if(!/^https:\/\//i.test(mediaUrl)||mediaUrl.length>2000)return output_({ok:false,status:"rejected",requestId,error:"mediaUrl must be a public HTTPS URL"});
