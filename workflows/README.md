@@ -33,3 +33,8 @@ Every folder contains:
 Shared references: [Credentials guide](./CREDENTIALS-GUIDE.md), [A–Z system layer](../system/README.md), and [Testing & validation](../TESTING-AND-VALIDATION.md).
 
 > These exports have different levels of completion. Valid JSON does not prove successful import, credential configuration, or real provider actions.
+
+
+## Shared quality standards
+
+Before activating any workflow, follow the repository-wide [Workflow Quality & Safe Operations Guide](../docs/WORKFLOW-QUALITY.md). It defines reusable checks for credentials, request validation, duplicate events, retries, human approval, error handling, and safe recovery.
