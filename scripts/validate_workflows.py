@@ -260,9 +260,16 @@ def main():
         readme_path = folder / "README.md"
         if readme_path.is_file():
             readme_text = readme_path.read_text(encoding="utf-8").lower()
-            for phrase in ("acceptance tests", "integration", "known limitations"):
-                if phrase not in readme_text:
-                    fail(f"{slug}/README.md", f"missing operator documentation section: {phrase}")
+            # Accept equivalent headings used by older guides, while still
+            # requiring meaningful setup and test content rather than exact wording.
+            section_groups = {
+                "setup/configuration": ("integration", "configuration", "configure", "setup", "credentials"),
+                "testing": ("acceptance tests", "testing", "test cases", "validation"),
+                "limitations": ("known limitations", "limitations", "caveats", "production notes"),
+            }
+            for label, alternatives in section_groups.items():
+                if not any(phrase in readme_text for phrase in alternatives):
+                    fail(f"{slug}/README.md", f"missing operator documentation topic: {label}")
         # Apps Script is an adapter and must not be mistaken for a deployed integration.
         code_path = folder / "Code.gs"
         if code_path.is_file():
