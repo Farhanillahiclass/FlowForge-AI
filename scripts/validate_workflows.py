@@ -298,6 +298,15 @@ def main():
         errors, warnings = inspect_workflow(path)
         if data and not any(n.get("id") == "subflow-trigger" and n.get("type") == "n8n-nodes-base.executeWorkflowTrigger" for n in data.get("nodes", []) if isinstance(n, dict)):
             errors.append("canonical workflow must expose the shared parent-call entry point")
+        # Publishing must fail closed until human approval is read from a trusted source.
+        if slug == "12-instagram-publishing-pipeline" and data:
+            approval_node = next((n for n in data.get("nodes", []) if isinstance(n, dict) and n.get("name") == "Validate Caption and Public Media URL"), None)
+            approval_code = (approval_node or {}).get("parameters", {}).get("jsCode", "")
+            if "const approved=false;" not in approval_code:
+                errors.append("Instagram approval must fail closed; do not trust caller-supplied approved flags")
+            appscript = (folder / "Code.gs").read_text(encoding="utf-8") if (folder / "Code.gs").is_file() else ""
+            if 'const approval="pending",status="queued";' not in appscript:
+                errors.append("Instagram Apps Script queue must enforce server-controlled pending/queued status")
         if errors:
             fail(path.relative_to(ROOT), "; ".join(errors))
         else:
