@@ -29,7 +29,7 @@
       ],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const b=$json.body||$json; const caption=String(b.caption||'').trim(); const imageUrl=String(b.imageUrl||'').trim(); const requestId=String(b.requestId||b.eventId||'').trim(); const approved=b.approved===true; const valid=!!requestId&&!!caption&&/^https:\\/\\//i.test(imageUrl); return [{json:{requestId,caption,imageUrl,approved,valid,approvalRequired:true,status:!valid?'invalid-input':approved?'approved-for-publishing':'pending-approval',submittedAt:new Date().toISOString()}}];"
+        "jsCode": "const b=$json.body||$json; const caption=String(b.caption||'').trim(); const imageUrl=String(b.imageUrl||'').trim(); const requestId=String(b.requestId||b.eventId||'').trim(); const approved=false; // Fail closed: caller-supplied approval is not trusted. Connect a persisted reviewer approval before enabling publication. const valid=!!requestId&&!!caption&&/^https:\\/\\//i.test(imageUrl); return [{json:{requestId,caption,imageUrl,approved,valid,approvalRequired:true,status:!valid?'invalid-input':approved?'approved-for-publishing':'pending-approval',submittedAt:new Date().toISOString()}}];"
       }
     },
     {
