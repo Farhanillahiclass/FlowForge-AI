@@ -1,5 +1,7 @@
 # FlowForge-AI — Visual Workflow Gallery
 
+**Interactive website:** [Open the FlowForge-AI gallery](https://farhanillahiclass.github.io/FlowForge-AI/) after the GitHub Pages deployment is available. The website source lives in [`site/`](../site/), with deployment configured in [`.github/workflows/deploy-gallery.yml`](../.github/workflows/deploy-gallery.yml).
+
 A visual index of the FlowForge-AI automation system maintained by Muhammad Farhan. Use this page to explore the architecture and jump directly to any of the 20 canonical n8n workflow templates.
 
 > **Status:** This gallery documents repository exports and setup guides. It does not mean workflows have been imported, connected to credentials, or runtime-tested in a live n8n workspace.
