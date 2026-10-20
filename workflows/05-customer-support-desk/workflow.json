@@ -29,7 +29,7 @@
       ],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const b=$json.body||$json; const requestId=String(b.requestId||b.eventId||'').trim(); const message=String(b.message||b.description||'').trim(); const email=String(b.email||'').trim().toLowerCase(); const priority=/urgent|blocked|cannot access|security|outage/i.test(message)?'high':'normal'; const category=/refund|payment|invoice|billing/i.test(message)?'billing':/error|bug|crash|not working|access/i.test(message)?'technical':'general'; const valid=!!requestId&&!!message&&/^[^\\\\s@]+@[^\\\\s@]+\\\\.[^\\\\s@]+$/.test(email); return [{json:{requestId,eventType:String(b.eventType||'support.ticket.created'),ticketId:'SUP-'+requestId,name:String(b.name||'').trim(),email,message,priority,category,status:'processing',valid,createdAt:new Date().toISOString()}}];"
+        "jsCode": "const b=$json.body||$json; const requestId=String(b.requestId||b.eventId||'').trim(); const message=String(b.message||b.description||'').trim(); const email=String(b.email||'').trim().toLowerCase(); const priority=/urgent|blocked|cannot access|security|outage/i.test(message)?'high':'normal'; const category=/refund|payment|invoice|billing/i.test(message)?'billing':/error|bug|crash|not working|access/i.test(message)?'technical':'general'; const valid=!!requestId&&!!message&&/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email); return [{json:{requestId,eventType:String(b.eventType||'support.ticket.created'),ticketId:'SUP-'+requestId,name:String(b.name||'').trim(),email,message,priority,category,status:'processing',valid,createdAt:new Date().toISOString()}}];"
       }
     },
     {
