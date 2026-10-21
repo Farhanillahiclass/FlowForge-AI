@@ -1,0 +1,37 @@
+name: Validate n8n Workflows
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'workflows/**/*.json'
+      - 'scripts/validate_workflow_exports_strict.py'
+      - '.github/workflows/validate-workflows.yml'
+  pull_request:
+    paths:
+      - 'workflows/**/*.json'
+      - 'scripts/validate_workflow_exports_strict.py'
+      - '.github/workflows/validate-workflows.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: validate-workflows-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Static workflow validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - name: Validate n8n workflow exports
+        run: python scripts/validate_workflow_exports_strict.py workflows/
