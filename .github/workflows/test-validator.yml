@@ -1,0 +1,32 @@
+name: Test Workflow Validator
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/validate_workflow_exports_strict.py'
+      - 'tests/test_validate_workflow_exports_strict.py'
+      - '.github/workflows/test-validator.yml'
+  pull_request:
+    paths:
+      - 'scripts/validate_workflow_exports_strict.py'
+      - 'tests/test_validate_workflow_exports_strict.py'
+      - '.github/workflows/test-validator.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  unit-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - name: Test validator
+        run: python -m unittest discover -s tests -p 'test_*.py' -v
