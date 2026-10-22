@@ -223,6 +223,18 @@ GitHub: [@Farhanillahiclass](https://github.com/Farhanillahiclass)
 LinkedIn: [Muhammad Farhan](https://www.linkedin.com/in/muhammadfarhanmrs/)  
 YouTube: [FarhanMRSDeveloper](https://www.youtube.com/@FarhanMRSDeveloper)
 
+## About the maintainer
+
+**Muhammad Farhan** is an AI student and aspiring AI engineer who enjoys building practical software projects at the intersection of automation, backend development, and artificial intelligence. FlowForge-AI is part of his hands-on learning and engineering journey: organizing reusable n8n workflows, documenting integration requirements, and improving quality checks so other developers can inspect and adapt the templates safely.
+
+- **GitHub:** [@Farhanillahiclass](https://github.com/Farhanillahiclass)
+- **LinkedIn:** [Muhammad Farhan](https://www.linkedin.com/in/muhammadfarhanmrs/)
+- **YouTube:** [FarhanMRSDeveloper](https://www.youtube.com/@FarhanMRSDeveloper)
+- **Kaggle:** [muhammadfarhanmrs](https://www.kaggle.com/muhammadfarhanmrs)
+- **MRS:** [mrsplatform.live](https://www.mrsplatform.live)
+
+> I am continuously learning and improving this project. Repository checks validate defined static rules; live integration and production readiness must be established through testing in a configured n8n workspace.
+
 ## License
 
 [MIT License](LICENSE). Third-party services remain subject to their own terms.
