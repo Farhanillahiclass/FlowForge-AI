@@ -49,3 +49,17 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible{ou
 .gallery-toast{position:fixed;left:50%;bottom:24px;z-index:80;transform:translate(-50%,14px);opacity:0;pointer-events:none;padding:12px 18px;border:1px solid rgba(110,231,183,.25);border-radius:12px;background:rgba(10,20,32,.96);box-shadow:0 12px 40px rgba(0,0,0,.3);color:#d1fae5;font-size:13px;font-weight:700;transition:opacity .2s ease,transform .2s ease}
 .gallery-toast.is-visible{opacity:1;transform:translate(-50%,0)}
 @media(max-width:480px){.card-utility{align-items:flex-start;flex-direction:column}.card-safety{text-align:left}}
+
+
+/* Gallery card action polish: consistent controls and no text collisions */
+.workflow-card{min-height:0;}
+.workflow-card .card-footer{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin-top:auto;padding-top:14px;}
+.workflow-card .card-action{min-height:32px;padding:5px 8px;border:1px solid rgba(148,163,184,.14);border-radius:8px;white-space:nowrap;}
+.workflow-card .card-action:hover{background:rgba(167,139,250,.09);border-color:rgba(167,139,250,.38);}
+.workflow-card .card-action.secondary{color:#a9b6cb;}
+.workflow-card .card-utility{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-top:10px;padding-top:11px;border-top:1px solid rgba(148,163,184,.1);}
+.workflow-card .copy-json-link{appearance:none;-webkit-appearance:none;flex:0 0 auto;min-height:34px;padding:7px 11px;border:1px solid rgba(167,139,250,.28);border-radius:9px;background:rgba(139,92,246,.1);color:#e2d9ff;font:700 10px/1.2 Manrope,system-ui,sans-serif;white-space:nowrap;}
+.workflow-card .copy-json-link:hover,.workflow-card .copy-json-link:focus-visible{background:rgba(139,92,246,.2);border-color:rgba(167,139,250,.62);color:#fff;}
+.workflow-card .card-safety{display:inline-flex;align-items:center;gap:6px;flex:1 1 130px;min-width:0;color:#a4b1c5;font-size:10px;line-height:1.5;text-align:left;}
+.workflow-card .card-safety span{flex:0 0 auto;}
+@media(max-width:480px){.workflow-card .card-utility{align-items:flex-start;flex-direction:row}.workflow-card .card-safety{flex-basis:120px}}
