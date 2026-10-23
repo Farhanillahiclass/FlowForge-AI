@@ -99,3 +99,16 @@ main > #about-farhan .maintainer-links{display:flex!important;flex-wrap:wrap!imp
 main > #about-farhan .maintainer-links a{display:inline-flex!important;align-items:center!important;justify-content:center!important;min-height:36px!important;padding:8px 13px!important;border:1px solid #303c55!important;border-radius:10px!important;background:rgba(18,27,45,.82)!important;color:#e2e8f4!important;font-size:11px!important;font-weight:700!important;text-decoration:none!important}
 main > #about-farhan .maintainer-links a:hover{border-color:#9b83fa!important;background:#241d40!important;color:#fff!important}
 @media(max-width:640px){main > #about-farhan.maintainer-section{width:calc(100% - 32px)!important;margin:28px auto 38px!important}main > #about-farhan .maintainer-card{grid-template-columns:1fr!important;gap:16px!important;padding:21px!important;border-radius:17px!important}main > #about-farhan .maintainer-mark{width:58px!important;height:58px!important;border-radius:15px!important;font-size:18px!important}}
+
+/* Final responsive polish for the maintainer intro, whose base card styles are inline. */
+@media (max-width: 640px) {
+  #about-farhan { width: calc(100% - 32px) !important; margin: 28px auto 38px !important; }
+  #about-farhan > div { grid-template-columns: minmax(0, 1fr) !important; gap: 16px !important; padding: 21px !important; border-radius: 17px !important; }
+  #about-farhan > div > div:first-child { width: 58px !important; height: 58px !important; border-radius: 15px !important; font-size: 18px !important; }
+  #about-farhan h2 { font-size: 25px !important; overflow-wrap: anywhere; }
+  #about-farhan p { overflow-wrap: anywhere; }
+  #about-farhan a { min-height: 40px !important; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #about-farhan *, #about-farhan *::before, #about-farhan *::after { scroll-behavior: auto !important; transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; }
+}
