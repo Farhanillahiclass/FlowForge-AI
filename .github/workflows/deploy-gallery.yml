@@ -23,6 +23,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+      - name: Check JavaScript syntax
+        run: node --check site/app.js
       - name: Validate gallery assets
         run: |
           test -s site/index.html
