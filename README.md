@@ -231,7 +231,7 @@ YouTube: [FarhanMRSDeveloper](https://www.youtube.com/@FarhanMRSDeveloper)
 - **LinkedIn:** [Muhammad Farhan](https://www.linkedin.com/in/muhammadfarhanmrs/)
 - **YouTube:** [FarhanMRSDeveloper](https://www.youtube.com/@FarhanMRSDeveloper)
 - **Kaggle:** [muhammadfarhanmrs](https://www.kaggle.com/muhammadfarhanmrs)
-- **MRS:** [mrsplatform.live](https://www.mrsplatform.live)
+- **MRS:** [mrsplatform.live](https://mrsplatform.tech)
 
 > I am continuously learning and improving this project. Repository checks validate defined static rules; live integration and production readiness must be established through testing in a configured n8n workspace.
 
